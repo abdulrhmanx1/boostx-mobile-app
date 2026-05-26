@@ -226,12 +226,21 @@ export const HomeScreen = ({
       if (!supabase) return;
 
       // 0. Fetch Home Sections (ordering & visibility)
-      const { data: sectionsData, error: sectionsErr } = await supabase
-        .from('home_sections')
-        .select('*')
-        .order('display_order', { ascending: true });
+      let sectionsData = null;
+      try {
+        const { data, error: sectionsErr } = await supabase
+          .from('home_sections')
+          .select('*')
+          .order('display_order', { ascending: true });
+        if (!sectionsErr && data) {
+          sectionsData = data;
+        } else if (sectionsErr) {
+          console.warn('home_sections table query warning:', sectionsErr.message);
+        }
+      } catch (err: any) {
+        console.warn('Failed to fetch home_sections:', err);
+      }
 
-      if (sectionsErr) throw sectionsErr;
       if (sectionsData && sectionsData.length > 0) {
         setHomeSections(sectionsData);
       } else {
@@ -246,21 +255,37 @@ export const HomeScreen = ({
       }
 
       // 1. Fetch Banners from home_banners and ad_campaigns
-      const { data: homeBannersData, error: homeBannersErr } = await supabase
-        .from('home_banners')
-        .select('*')
-        .eq('is_active', true)
-        .order('display_order', { ascending: true });
+      let homeBannersData = null;
+      try {
+        const { data, error: homeBannersErr } = await supabase
+          .from('home_banners')
+          .select('*')
+          .eq('is_active', true)
+          .order('display_order', { ascending: true });
+        if (!homeBannersErr && data) {
+          homeBannersData = data;
+        } else if (homeBannersErr) {
+          console.warn('home_banners table query warning:', homeBannersErr.message);
+        }
+      } catch (err: any) {
+        console.warn('Failed to fetch home_banners:', err);
+      }
 
-      if (homeBannersErr) throw homeBannersErr;
-
-      const { data: campaignsData, error: campaignsErr } = await supabase
-        .from('ad_campaigns')
-        .select('*')
-        .eq('status', 'approved')
-        .eq('is_active', true);
-
-      if (campaignsErr) throw campaignsErr;
+      let campaignsData = null;
+      try {
+        const { data, error: campaignsErr } = await supabase
+          .from('ad_campaigns')
+          .select('*')
+          .eq('status', 'approved')
+          .eq('is_active', true);
+        if (!campaignsErr && data) {
+          campaignsData = data;
+        } else if (campaignsErr) {
+          console.warn('ad_campaigns table query warning:', campaignsErr.message);
+        }
+      } catch (err: any) {
+        console.warn('Failed to fetch ad_campaigns:', err);
+      }
 
       const combinedBanners = [
         ...(homeBannersData || []).map((b: any) => ({
@@ -307,21 +332,38 @@ export const HomeScreen = ({
       }
 
       // 4. Fetch Categories
-      const { data: categoriesData, error: categoriesErr } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('is_active', true)
-        .order('display_order', { ascending: true });
-
-      if (categoriesErr) throw categoriesErr;
+      let categoriesData = null;
+      try {
+        const { data, error: categoriesErr } = await supabase
+          .from('categories')
+          .select('*')
+          .eq('is_active', true)
+          .order('display_order', { ascending: true });
+        if (!categoriesErr && data) {
+          categoriesData = data;
+        } else if (categoriesErr) {
+          console.warn('categories table query warning:', categoriesErr.message);
+        }
+      } catch (err: any) {
+        console.warn('Failed to fetch categories:', err);
+      }
       setCategoriesList(categoriesData && categoriesData.length > 0 ? categoriesData : fallbackCategories);
 
       // 5. Fetch Partners (featured stores, is_active check)
-      const { data: partnersData, error: partnersErr } = await supabase
-        .from('partners')
-        .select('*');
+      let partnersData = null;
+      try {
+        const { data, error: partnersErr } = await supabase
+          .from('partners')
+          .select('*');
+        if (!partnersErr && data) {
+          partnersData = data;
+        } else if (partnersErr) {
+          console.warn('partners table query warning:', partnersErr.message);
+        }
+      } catch (err: any) {
+        console.warn('Failed to fetch partners:', err);
+      }
 
-      if (partnersErr) throw partnersErr;
       if (partnersData && partnersData.length > 0) {
         const mappedPartners = partnersData.map((p: any) => ({
           id: p.id,
@@ -341,13 +383,21 @@ export const HomeScreen = ({
       }
 
       // 6. Fetch Offers from public.offers
-      const { data: offersData, error: offersErr } = await supabase
-        .from('offers')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-
-      if (offersErr) throw offersErr;
+      let offersData = null;
+      try {
+        const { data, error: offersErr } = await supabase
+          .from('offers')
+          .select('*')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false });
+        if (!offersErr && data) {
+          offersData = data;
+        } else if (offersErr) {
+          console.warn('offers table query warning:', offersErr.message);
+        }
+      } catch (err: any) {
+        console.warn('Failed to fetch offers:', err);
+      }
 
       const mappedOffers = (offersData || []).map((o: any) => ({
         id: o.id,
@@ -366,12 +416,20 @@ export const HomeScreen = ({
       }));
 
       // 7. Fetch Sponsored Products
-      const { data: sponsoredData, error: sponsoredErr } = await supabase
-        .from('sponsored_products')
-        .select('*')
-        .eq('is_active', true);
-
-      if (sponsoredErr) throw sponsoredErr;
+      let sponsoredData = null;
+      try {
+        const { data, error: sponsoredErr } = await supabase
+          .from('sponsored_products')
+          .select('*')
+          .eq('is_active', true);
+        if (!sponsoredErr && data) {
+          sponsoredData = data;
+        } else if (sponsoredErr) {
+          console.warn('sponsored_products table query warning:', sponsoredErr.message);
+        }
+      } catch (err: any) {
+        console.warn('Failed to fetch sponsored_products:', err);
+      }
 
       const mappedSponsored = (sponsoredData || []).map((o: any) => ({
         id: o.id,
@@ -399,13 +457,21 @@ export const HomeScreen = ({
         setOrdersEmpty(true);
         return;
       }
-      const { data: ordersData, error: ordersErr } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('customer_id', currentCustId)
-        .order('created_at', { ascending: false });
-
-      if (ordersErr) throw ordersErr;
+      let ordersData = null;
+      try {
+        const { data, error: ordersErr } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('customer_id', currentCustId)
+          .order('created_at', { ascending: false });
+        if (!ordersErr && data) {
+          ordersData = data;
+        } else if (ordersErr) {
+          console.warn('orders table query warning:', ordersErr.message);
+        }
+      } catch (err: any) {
+        console.warn('Failed to fetch orders:', err);
+      }
 
       if (ordersData && ordersData.length > 0) {
         setOrdersEmpty(false);
@@ -423,7 +489,15 @@ export const HomeScreen = ({
 
     } catch (err: any) {
       console.error('Error fetching dynamic home page connection:', err);
-      setError(err.message || 'حدث خطأ أثناء تحميل البيانات');
+      // Fail-safe: do not crash, load fallback sections so user has beautiful UI
+      setHomeSections([
+        { section_type: 'stories', is_visible: true },
+        { section_type: 'banners', is_visible: true },
+        { section_type: 'offers', is_visible: true },
+        { section_type: 'categories', is_visible: true },
+        { section_type: 'sponsored_campaigns', is_visible: true },
+        { section_type: 'partners', is_visible: true }
+      ]);
     } finally {
       setLoading(false);
     }

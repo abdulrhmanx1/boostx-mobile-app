@@ -1064,15 +1064,7 @@ const LOCAL_DEFAULT_ONBOARDING_SCREENS: any[] = [
 
 // --- Unified App Root Router ---
 export default function App() {
-  const [appState, setAppState] = useState<'intro_video' | 'onboarding' | 'login' | 'main'>(() => {
-    const hasSession = !!localStorage.getItem('BX_CURRENT_USER');
-    const introWatched = localStorage.getItem('boostx_intro_watched_v1') === 'true';
-    const onboardingCompleted = localStorage.getItem('boostx_onboarding_completed_v1') === 'true';
-    if (hasSession) return 'main';
-    if (!introWatched) return 'intro_video';
-    if (!onboardingCompleted) return 'onboarding';
-    return 'login';
-  });
+  const [appState, setAppState] = useState<'intro_video' | 'onboarding' | 'login' | 'main'>('intro_video');
   const [currentTab, setCurrentTab] = useState<'home' | 'search' | 'offers' | 'cart' | 'orders' | 'profile' | 'points'>('home');
   
   // Auxiliary customer screens (overlay or routed states)
@@ -1177,23 +1169,13 @@ export default function App() {
         const { data: { session } } = await supabase.auth.getSession();
         if (session && session.user) {
           await resolveAndSetUser(session.user);
-          setAppState('main');
-          return;
         }
       } catch (e) {
         console.error('Session check error:', e);
       }
 
-      // If no valid session, check returning user status
-      const introWatched = localStorage.getItem('boostx_intro_watched_v1') === 'true';
-      const onboardingCompleted = localStorage.getItem('boostx_onboarding_completed_v1') === 'true';
-      if (introWatched && onboardingCompleted) {
-        setAppState('login');
-      } else if (!introWatched) {
-        setAppState('intro_video');
-      } else {
-        setAppState('onboarding');
-      }
+      // Unconditionally play the video on app launch/refresh!
+      setAppState('intro_video');
     };
     checkActiveSession();
 
@@ -1201,7 +1183,7 @@ export default function App() {
       console.log('Live Auth Event:', event);
       if (session && session.user) {
         await resolveAndSetUser(session.user);
-        setAppState('main');
+        setAppState(prev => prev === 'intro_video' ? 'intro_video' : 'main');
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser({
           id: '',
@@ -1215,6 +1197,7 @@ export default function App() {
           isGuest: true
         });
         localStorage.removeItem('BX_CURRENT_USER');
+        localStorage.removeItem('boostx_login_skipped_v1'); // Clear skip login choice
         setAppState('login');
       }
     });
@@ -1372,7 +1355,21 @@ export default function App() {
         <IntroVideoView 
           onFinish={() => {
             localStorage.setItem('boostx_intro_watched_v1', 'true');
-            setAppState('onboarding');
+            
+            // Post-video routing logic based on user status
+            const hasSession = !!localStorage.getItem('BX_CURRENT_USER') && !JSON.parse(localStorage.getItem('BX_CURRENT_USER')!).isGuest;
+            const onboardingCompleted = localStorage.getItem('boostx_onboarding_completed_v1') === 'true';
+            const loginSkipped = localStorage.getItem('boostx_login_skipped_v1') === 'true';
+            
+            if (hasSession) {
+              setAppState('main');
+            } else if (!onboardingCompleted) {
+              setAppState('onboarding');
+            } else if (loginSkipped) {
+              setAppState('main');
+            } else {
+              setAppState('login');
+            }
           }} 
         />
       </AnimatePresence>
@@ -1413,6 +1410,7 @@ export default function App() {
             };
             setCurrentUser(loggedInUser);
             localStorage.setItem('BX_CURRENT_USER', JSON.stringify(loggedInUser));
+            localStorage.removeItem('boostx_login_skipped_v1'); // Clear skip login choice on successful login
             setAppState('main');
           }} 
           onBrowseAsGuest={() => {
@@ -1429,6 +1427,7 @@ export default function App() {
             };
             setCurrentUser(guestUser);
             localStorage.setItem('BX_CURRENT_USER', JSON.stringify(guestUser));
+            localStorage.setItem('boostx_login_skipped_v1', 'true'); // Save skip login choice!
             setAppState('main');
           }}
         />

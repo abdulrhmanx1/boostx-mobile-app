@@ -19,6 +19,8 @@ import { OfferDetailsScreen } from './screens/OfferDetailsScreen';
 import { SponsoredListingScreen } from './screens/SponsoredListingScreen';
 import { ListingScreen } from './screens/ListingScreen';
 import { supabase } from './supabaseClient';
+// @ts-ignore
+import introVideo from './assets/videos/boostx_intro.mp4.MP4';
 
 // Import Shared Experience Services
 import { 
@@ -513,12 +515,90 @@ const CinematicParticles = () => {
   );
 };
 
+// --- Premium Intro Video View Component ---
+const IntroVideoView = ({ onFinish }: { onFinish: () => void }) => {
+  const handleVideoEnd = () => {
+    onFinish();
+  };
+
+  return (
+    <div style={{ 
+      position: 'relative', 
+      height: '100vh', 
+      width: '100%', 
+      maxWidth: '480px', 
+      margin: '0 auto', 
+      background: '#090412', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      overflow: 'hidden', 
+      fontFamily: 'Cairo, sans-serif', 
+      boxSizing: 'border-box', 
+      boxShadow: '0 0 32px rgba(22, 5, 45, 0.12)' 
+    }}>
+      <video 
+        src={introVideo} 
+        autoPlay 
+        playsInline 
+        onEnded={handleVideoEnd}
+        style={{ 
+          width: '100%', 
+          height: '100%', 
+          objectFit: 'cover',
+          zIndex: 1
+        }} 
+      />
+
+      <button 
+        onClick={onFinish}
+        style={{ 
+          position: 'absolute', 
+          top: 'calc(16px + env(safe-area-inset-top, 0px))', 
+          right: '16px', 
+          zIndex: 10, 
+          background: 'rgba(255, 255, 255, 0.08)', 
+          border: '1px solid rgba(255, 255, 255, 0.15)', 
+          color: 'white', 
+          fontSize: '0.8rem', 
+          fontWeight: 900, 
+          padding: '8px 20px', 
+          borderRadius: '16px', 
+          cursor: 'pointer',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+          transition: 'all 0.2s ease',
+          outline: 'none',
+          fontFamily: 'Cairo, sans-serif'
+        }}
+      >
+        تخطي ❯
+      </button>
+
+      <div style={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: '120px',
+        background: 'linear-gradient(to top, rgba(9, 4, 18, 0.6) 0%, transparent 100%)',
+        zIndex: 2,
+        pointerEvents: 'none'
+      }} />
+    </div>
+  );
+};
+
 // --- Cinematic Splash Screen Component ---
-const SplashView = ({ settings, onFinish }: { settings: SplashSettings; onFinish: (action?: 'signin' | 'signup') => void }) => {
+const SplashView = ({ settings, onFinish }: { settings: SplashSettings; onFinish: (action?: 'signin' | 'signup' | 'intro_video') => void }) => {
   const [showControls, setShowControls] = useState(false);
   const [scene, setScene] = useState<'scene1' | 'scene2' | 'scene3' | 'scene4' | 'scene5'>('scene1');
 
   useEffect(() => {
+    const hasPlayed = localStorage.getItem('BX_INTRO_VIDEO_PLAYED') === 'true';
+
     // Scene 1 -> Scene 2 (Box falls down fast): 800ms
     const t2 = setTimeout(() => {
       setScene('scene2');
@@ -547,8 +627,12 @@ const SplashView = ({ settings, onFinish }: { settings: SplashSettings; onFinish
 
     // Scene 4 -> Scene 5 (Transition to welcome screen static logo & buttons): 4400ms
     const t5 = setTimeout(() => {
-      setScene('scene5');
-      setShowControls(true);
+      if (!hasPlayed) {
+        onFinish('intro_video');
+      } else {
+        setScene('scene5');
+        setShowControls(true);
+      }
     }, 4400);
 
     return () => {
@@ -1166,7 +1250,7 @@ const LoginView = ({ settings, onLoginSuccess, onBrowseAsGuest }: { settings: Lo
 
 // --- Unified App Root Router ---
 export default function App() {
-  const [appState, setAppState] = useState<'splash' | 'onboarding' | 'login' | 'main'>('splash');
+  const [appState, setAppState] = useState<'splash' | 'intro_video' | 'onboarding' | 'login' | 'main'>('splash');
   const [currentTab, setCurrentTab] = useState<'home' | 'search' | 'offers' | 'cart' | 'orders' | 'profile' | 'points'>('home');
   
   // Auxiliary customer screens (overlay or routed states)
@@ -1442,11 +1526,26 @@ export default function App() {
         <SplashView 
           settings={splashSettings} 
           onFinish={(action) => {
-            if (action === 'signin' || action === 'signup') {
+            if (action === 'intro_video') {
+              setAppState('intro_video');
+            } else if (action === 'signin' || action === 'signup') {
               setAppState('login');
             } else {
               setAppState('onboarding');
             }
+          }} 
+        />
+      </AnimatePresence>
+    );
+  }
+
+  if (appState === 'intro_video') {
+    return (
+      <AnimatePresence mode="wait">
+        <IntroVideoView 
+          onFinish={() => {
+            localStorage.setItem('BX_INTRO_VIDEO_PLAYED', 'true');
+            setAppState('onboarding');
           }} 
         />
       </AnimatePresence>

@@ -967,6 +967,12 @@ export default function App() {
               <SearchScreen 
                 onBack={() => setCurrentTab('home')}
                 onPartnerClick={handlePartnerSelect}
+                onOfferClick={setSelectedOffer}
+                onCategoryClick={(category) => {
+                  if (category.includes('مطاعم')) setSelectedListingSection('restaurants');
+                  else if (category.includes('صيدل')) setSelectedListingSection('pharmacies');
+                  else setSelectedListingSection('products');
+                }}
               />
             )}
             {(currentTab === 'offers' || currentTab === 'points') && (

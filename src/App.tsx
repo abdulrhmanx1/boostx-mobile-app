@@ -147,14 +147,14 @@ const CinematicStyles = () => (
       display: flex;
       flex-direction: column;
       align-items: center;
-      justifyContent: center;
+      justify-content: center;
       position: relative;
       overflow: hidden;
       font-family: 'Cairo', sans-serif;
     }
     .electric-logo-text {
       font-size: 4rem;
-      fontWeight: 900;
+      font-weight: 900;
       background: linear-gradient(135deg, #c084fc 0%, #7c3aed 50%, #6366f1 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -225,23 +225,342 @@ const CinematicStyles = () => (
       background: rgba(255, 255, 255, 0.05);
       box-shadow: 0 0 15px rgba(168,85,247,0.2);
     }
+
+    /* --- New Cinematic Redesign Animation Styles --- */
+    @keyframes fog-move {
+      0% { transform: translate(0, 0) scale(1); opacity: 0.25; }
+      50% { transform: translate(-30px, 20px) scale(1.15); opacity: 0.45; }
+      100% { transform: translate(0, 0) scale(1); opacity: 0.25; }
+    }
+    .fog-overlay {
+      position: absolute;
+      inset: -10%;
+      background: radial-gradient(circle at 20% 30%, rgba(140, 99, 199, 0.18) 0%, transparent 50%),
+                  radial-gradient(circle at 80% 70%, rgba(85, 194, 122, 0.12) 0%, transparent 50%);
+      filter: blur(50px);
+      animation: fog-move 14s infinite ease-in-out;
+      pointer-events: none;
+      z-index: 3;
+    }
+    @keyframes particle-drift {
+      0% { transform: translateY(0) translateX(0) scale(1); opacity: 0; }
+      10% { opacity: 0.6; }
+      90% { opacity: 0.6; }
+      100% { transform: translateY(-150px) translateX(20px) scale(0.5); opacity: 0; }
+    }
+    .cinematic-particle {
+      position: absolute;
+      background: rgba(255, 255, 255, 0.25);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 4;
+      animation: particle-drift infinite linear;
+    }
+
+    @keyframes bag-entrance {
+      0% {
+        transform: translate(-50px, -600px) scaleY(1.8) scaleX(0.7) rotate(-15deg);
+        filter: blur(12px);
+        opacity: 0;
+      }
+      60% {
+        transform: translate(0, 30px) scaleY(0.75) scaleX(1.25) rotate(5deg);
+        filter: blur(4px);
+        opacity: 1;
+      }
+      75% {
+        transform: translate(0, -18px) scaleY(1.15) scaleX(0.9) rotate(-3deg);
+        filter: blur(0);
+      }
+      90% {
+        transform: translate(0, 8px) scaleY(0.95) scaleX(1.05) rotate(1deg);
+      }
+      100% {
+        transform: translate(0, 0) scale(1) rotate(0deg);
+        filter: blur(0);
+        opacity: 1;
+      }
+    }
+    .delivery-bag-wrapper {
+      position: relative;
+      width: 140px;
+      height: 140px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 15;
+      transform-style: preserve-3d;
+      perspective: 800px;
+    }
+    .delivery-bag-animate-enter {
+      animation: bag-entrance 1.1s cubic-bezier(0.175, 0.885, 0.32, 1.2) forwards;
+    }
+
+    @keyframes shadow-scale {
+      0% { transform: scale(0.2); opacity: 0.1; }
+      60% { transform: scale(1.2); opacity: 0.8; }
+      75% { transform: scale(0.85); opacity: 0.4; }
+      90% { transform: scale(1.05); opacity: 0.65; }
+      100% { transform: scale(1); opacity: 0.6; }
+    }
+    .bag-shadow {
+      position: absolute;
+      bottom: -15px;
+      width: 110px;
+      height: 16px;
+      background: radial-gradient(ellipse, rgba(16, 3, 36, 0.7) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 14;
+      animation: shadow-scale 1.1s cubic-bezier(0.175, 0.885, 0.32, 1.2) forwards;
+    }
+
+    @keyframes lid-open-3d {
+      0% {
+        transform: translateY(0) rotate(0deg) scale(1);
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(-45px) translateX(25px) rotate(35deg) scale(0.85);
+        opacity: 0.15;
+        filter: blur(3px);
+      }
+    }
+    .bag-lid-open-class {
+      animation: lid-open-3d 0.8s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+      transform-origin: center;
+    }
+
+    @keyframes light-leak {
+      0% {
+        opacity: 0;
+        transform: scale(0.5);
+        filter: blur(10px);
+      }
+      50% {
+        opacity: 0.85;
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1.75);
+        filter: blur(25px);
+      }
+    }
+    .light-leak-glow {
+      position: absolute;
+      width: 130px;
+      height: 130px;
+      background: radial-gradient(circle, rgba(140, 99, 199, 0.85) 0%, rgba(85, 194, 122, 0.4) 40%, transparent 75%);
+      border-radius: 50%;
+      mix-blend-mode: screen;
+      pointer-events: none;
+      z-index: 16;
+      animation: light-leak 0.8s ease-out forwards;
+    }
+
+    @keyframes gas-escape {
+      0% {
+        transform: translateY(10px) scale(0.5);
+        opacity: 0;
+        filter: blur(5px);
+      }
+      50% {
+        opacity: 0.75;
+      }
+      100% {
+        transform: translateY(-80px) scale(1.5);
+        opacity: 0;
+        filter: blur(12px);
+      }
+    }
+    .gas-puff {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      background: radial-gradient(circle, rgba(85, 194, 122, 0.5) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 17;
+      animation: gas-escape 1.2s ease-out infinite;
+    }
+
+    @keyframes run-across-screen {
+      0% {
+        transform: translateX(0px) scale(0.5);
+        opacity: 0;
+      }
+      15% {
+        transform: translateX(0px) scale(1.15) rotate(5deg);
+        opacity: 1;
+      }
+      30% {
+        transform: translateX(0px) scale(1) rotate(0deg);
+      }
+      100% {
+        transform: translateX(380px) scale(0.9) rotate(5deg);
+        opacity: 1;
+      }
+    }
+    .logo-runner-wrapper {
+      position: absolute;
+      top: 40%;
+      left: calc(50% - 40px);
+      transform-origin: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      animation: run-across-screen 1.6s cubic-bezier(0.45, 0, 0.55, 1) forwards;
+    }
+
+    @keyframes leg-run-left {
+      0%, 100% { transform: rotate(-35deg); }
+      50% { transform: rotate(35deg); }
+    }
+    @keyframes leg-run-right {
+      0%, 100% { transform: rotate(35deg); }
+      50% { transform: rotate(-35deg); }
+    }
+    .leg-l {
+      animation: leg-run-left 0.22s infinite linear;
+      transform-origin: 30px 5px;
+    }
+    .leg-r {
+      animation: leg-run-right 0.22s infinite linear;
+      transform-origin: 50px 5px;
+    }
+
+    @keyframes run-bounce {
+      0%, 100% { transform: translateY(0) rotate(-3deg); }
+      50% { transform: translateY(-6px) rotate(3deg); }
+    }
+    .logo-running-bounce {
+      animation: run-bounce 0.22s infinite ease-in-out;
+    }
+
+    @keyframes electric-glow {
+      0%, 100% { filter: drop-shadow(0 0 8px rgba(140, 99, 199, 0.6)) brightness(1); }
+      50% { filter: drop-shadow(0 0 22px rgba(85, 194, 122, 0.95)) brightness(1.25); }
+    }
+    .electric-active {
+      animation: electric-glow 0.15s infinite alternate ease-in-out;
+    }
+
+    @keyframes trail-stretch {
+      0% {
+        width: 0px;
+        opacity: 0;
+      }
+      20% {
+        width: 30px;
+        opacity: 0.85;
+      }
+      100% {
+        width: 300px;
+        opacity: 0;
+      }
+    }
+    .energy-trail {
+      position: absolute;
+      right: 35px;
+      top: 50%;
+      transform: translateY(-50%) skewX(-20deg);
+      height: 24px;
+      background: linear-gradient(-90deg, #55C27A 0%, #8C63C7 50%, transparent 100%);
+      border-radius: 12px;
+      opacity: 0.8;
+      pointer-events: none;
+      z-index: 18;
+      animation: trail-stretch 1.6s cubic-bezier(0.45, 0, 0.55, 1) forwards;
+    }
   ` }} />
 );
+
+// --- Cinematic Organic Particles Helper Component ---
+const CinematicParticles = () => {
+  const particles = [
+    { size: 4, left: '10%', bottom: '5%', duration: '6s', delay: '0s' },
+    { size: 6, left: '25%', bottom: '8%', duration: '8s', delay: '1s' },
+    { size: 3, left: '45%', bottom: '4%', duration: '5s', delay: '2s' },
+    { size: 5, left: '60%', bottom: '10%', duration: '7s', delay: '0.5s' },
+    { size: 4, left: '75%', bottom: '6%', duration: '9s', delay: '1.5s' },
+    { size: 6, left: '90%', bottom: '3%', duration: '6s', delay: '3s' },
+    { size: 3, left: '15%', bottom: '12%', duration: '7s', delay: '2.5s' },
+    { size: 5, left: '35%', bottom: '7%', duration: '8s', delay: '3.5s' },
+    { size: 4, left: '55%', bottom: '9%', duration: '5s', delay: '4s' },
+    { size: 5, left: '80%', bottom: '11%', duration: '9s', delay: '0.2s' },
+  ];
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 4 }}>
+      {particles.map((p, i) => (
+        <div 
+          key={i} 
+          className="cinematic-particle" 
+          style={{
+            width: p.size,
+            height: p.size,
+            left: p.left,
+            bottom: p.bottom,
+            animationDuration: p.duration,
+            animationDelay: p.delay,
+            boxShadow: '0 0 8px rgba(255,255,255,0.4)',
+          }} 
+        />
+      ))}
+    </div>
+  );
+};
 
 // --- Cinematic Splash Screen Component ---
 const SplashView = ({ settings, onFinish }: { settings: SplashSettings; onFinish: (action?: 'signin' | 'signup') => void }) => {
   const [showControls, setShowControls] = useState(false);
+  const [scene, setScene] = useState<'scene1' | 'scene2' | 'scene3' | 'scene4' | 'scene5'>('scene1');
 
   useEffect(() => {
-    // Show logo first, then fade in buttons after 1200ms
-    const timer = setTimeout(() => {
+    // Scene 1 -> Scene 2 (Box falls down fast): 800ms
+    const t2 = setTimeout(() => {
+      setScene('scene2');
+      // Optional Haptic Hook on Landing
+      try {
+        if (window.navigator && window.navigator.vibrate) {
+          window.navigator.vibrate([80, 40, 80]);
+        }
+      } catch (e) {}
+    }, 800);
+
+    // Scene 2 -> Scene 3 (Box unlocks & lid tilts open): 1900ms
+    const t3 = setTimeout(() => {
+      setScene('scene3');
+      try {
+        if (window.navigator && window.navigator.vibrate) {
+          window.navigator.vibrate(60);
+        }
+      } catch (e) {}
+    }, 1900);
+
+    // Scene 3 -> Scene 4 (Logo jumps out, sprouts robotic legs & runs): 2900ms
+    const t4 = setTimeout(() => {
+      setScene('scene4');
+    }, 2900);
+
+    // Scene 4 -> Scene 5 (Transition to welcome screen static logo & buttons): 4400ms
+    const t5 = setTimeout(() => {
+      setScene('scene5');
       setShowControls(true);
-    }, 1200);
-    return () => clearTimeout(timer);
+    }, 4400);
+
+    return () => {
+      clearTimeout(t2);
+      clearTimeout(t3);
+      clearTimeout(t4);
+      clearTimeout(t5);
+    };
   }, []);
 
   return (
-    <div style={{ position: 'relative', height: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', fontFamily: 'Cairo, sans-serif', boxSizing: 'border-box' }}>
+    <div style={{ position: 'relative', height: '100vh', width: '100%', maxWidth: '480px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', fontFamily: 'Cairo, sans-serif', boxSizing: 'border-box', boxShadow: '0 0 32px rgba(22, 5, 45, 0.12)' }}>
       <CinematicStyles />
       
       {/* Animated Blur Gradient Mesh Background */}
@@ -252,57 +571,179 @@ const SplashView = ({ settings, onFinish }: { settings: SplashSettings; onFinish
         <div className="mesh-blob mesh-blob-4" />
       </div>
 
+      {/* Cinematic Fog/Smoke Layer */}
+      <div className="fog-overlay" />
+
       {/* Frosted Glass Vector Noise Overlay */}
       <div className="noise-overlay" />
 
-      {/* Center Logo & Title */}
-      <motion.div 
-        style={{ zIndex: 10, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }} 
-        initial={{ scale: 0.85, opacity: 0 }} 
-        animate={{ scale: 1, opacity: 1 }} 
-        transition={{ type: "spring", stiffness: 90, damping: 12 }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
-          <motion.div 
-            animate={{ y: [0, -8, 0] }}
-            transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
-            style={{ 
-              width: 90, 
-              height: 90, 
-              borderRadius: '28px', 
-              background: 'linear-gradient(135deg, #8C63C7 0%, #6B4AA0 100%)', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              boxShadow: '0 20px 40px rgba(107, 74, 160, 0.4), inset 0 1px 2px rgba(255,255,255,0.2)',
-              border: '1px solid rgba(255,255,255,0.12)'
-            }}
-          >
-            <span style={{ fontSize: '2.5rem', fontWeight: 950, color: 'white' }}>B</span>
-          </motion.div>
+      {/* Cinematic Particles */}
+      <CinematicParticles />
+
+      {/* Scene 2 & 3: Glossy Futuristic Purple Delivery Box */}
+      {(scene === 'scene2' || scene === 'scene3') && (
+        <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
+          <div className="delivery-bag-wrapper delivery-bag-animate-enter">
+            <svg width="140" height="140" viewBox="0 0 140 140" style={{ overflow: 'visible' }}>
+              <defs>
+                <linearGradient id="purple-front-left" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#5c3a9e" />
+                  <stop offset="100%" stopColor="#220e3d" />
+                </linearGradient>
+                <linearGradient id="purple-front-right" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#8c63c7" />
+                  <stop offset="100%" stopColor="#3d1b6b" />
+                </linearGradient>
+                <linearGradient id="purple-lid-left" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#9c73df" />
+                  <stop offset="100%" stopColor="#4c2c8f" />
+                </linearGradient>
+                <linearGradient id="purple-lid-right" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#b38df7" />
+                  <stop offset="100%" stopColor="#5c36af" />
+                </linearGradient>
+                <linearGradient id="neon-glow" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#55C27A" />
+                  <stop offset="100%" stopColor="#3cd070" />
+                </linearGradient>
+              </defs>
+
+              {/* Box Body (Front Left Face) */}
+              <polygon points="20,70 70,95 70,140 20,115" fill="url(#purple-front-left)" stroke="#4b2e85" strokeWidth="0.5" />
+              
+              {/* Box Body (Front Right Face) */}
+              <polygon points="70,95 120,70 120,115 70,140" fill="url(#purple-front-right)" stroke="#5d35a8" strokeWidth="0.5" />
+
+              {/* Neon Green Accent Stripes */}
+              <polygon points="20,85 70,110 70,116 20,91" fill="url(#neon-glow)" opacity="0.85" />
+              <polygon points="70,110 120,85 120,91 70,116" fill="url(#neon-glow)" opacity="0.85" />
+
+              {/* Premium Brand Logo Stamp on Front Right Face */}
+              <g transform="translate(82, 92) skewY(-14) scale(0.65)">
+                <rect width="24" height="24" rx="6" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.3)" strokeWidth="1" />
+                <text x="6" y="18" fill="#ffffff" fontSize="15" fontWeight="950" fontFamily="Cairo">B</text>
+              </g>
+
+              {/* Top Lid Group */}
+              <g className={scene === 'scene3' ? 'bag-lid-open-class' : ''}>
+                <polygon points="20,70 70,95 70,82 20,57" fill="url(#purple-lid-left)" stroke="#4c2c8f" strokeWidth="0.5" />
+                <polygon points="70,95 120,70 120,57 70,82" fill="url(#purple-lid-right)" stroke="#5c36af" strokeWidth="0.5" />
+                <polygon points="20,57 70,32 120,57 70,82" fill="#7a4fb8" stroke="#8d5fd1" strokeWidth="0.5" />
+                <polygon points="60,47 70,42 80,47 70,52" fill="url(#neon-glow)" />
+                <line x1="70" y1="52" x2="70" y2="57" stroke="#ffffff" strokeWidth="1.5" />
+              </g>
+            </svg>
+            
+            {/* Scene 3: Lights Leaking and Gas Escaping */}
+            {scene === 'scene3' && (
+              <>
+                <div className="light-leak-glow" style={{ top: '-15px', left: '5px' }} />
+                <div className="gas-puff" style={{ top: '-40px', left: '20px', animationDelay: '0s' }} />
+                <div className="gas-puff" style={{ top: '-45px', left: '50px', animationDelay: '0.3s' }} />
+                <div className="gas-puff" style={{ top: '-38px', left: '80px', animationDelay: '0.6s' }} />
+              </>
+            )}
+          </div>
+          <div className="bag-shadow" />
         </div>
+      )}
 
-        <h1 style={{ 
-          fontSize: '2.8rem', 
-          fontWeight: 950, 
-          margin: '0 0 8px 0', 
-          background: 'linear-gradient(135deg, #ffffff 0%, #8C63C7 100%)', 
-          WebkitBackgroundClip: 'text', 
-          WebkitTextFillColor: 'transparent',
-          letterSpacing: '-1px'
-        }}>
-          BoostX
-        </h1>
+      {/* Scene 4: BoostX Logo Jumps Out, Sprouts Robotic Legs & Runs */}
+      {scene === 'scene4' && (
+        <div className="logo-runner-wrapper">
+          {/* Neon Energy Trail */}
+          <div className="energy-trail" />
 
-        <p style={{ 
-          color: 'rgba(255,255,255,0.75)', 
-          fontSize: '0.88rem', 
-          fontWeight: 700, 
-          margin: 0
-        }}>
-          Work Starts Here, Success Follows.
-        </p>
-      </motion.div>
+          {/* Running Logo Body */}
+          <div className="logo-running-bounce electric-active" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div 
+              className="logo-jump-animate"
+              style={{ 
+                width: 80, 
+                height: 80, 
+                borderRadius: '24px', 
+                background: 'linear-gradient(135deg, #8C63C7 0%, #6B4AA0 100%)', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                boxShadow: '0 15px 30px rgba(107, 74, 160, 0.4), inset 0 1px 2px rgba(255,255,255,0.2)',
+                border: '1px solid rgba(255,255,255,0.12)'
+              }}
+            >
+              <span style={{ fontSize: '2.2rem', fontWeight: 950, color: 'white' }}>B</span>
+            </div>
+            
+            {/* Futuristic Robotic Legs */}
+            <svg width="80" height="40" viewBox="0 0 80 40" style={{ overflow: 'visible', marginTop: -4 }}>
+              {/* Left Leg */}
+              <g className="leg-l">
+                <line x1="30" y1="5" x2="20" y2="20" stroke="#55C27A" strokeWidth="5.5" strokeLinecap="round" />
+                <line x1="20" y1="20" x2="32" y2="35" stroke="#55C27A" strokeWidth="5.5" strokeLinecap="round" />
+                <ellipse cx="34" cy="35" rx="6.5" ry="3.5" fill="#ffffff" />
+                <circle cx="20" cy="20" r="3.5" fill="#ffffff" />
+              </g>
+              {/* Right Leg */}
+              <g className="leg-r">
+                <line x1="50" y1="5" x2="60" y2="20" stroke="#55C27A" strokeWidth="5.5" strokeLinecap="round" />
+                <line x1="60" y1="20" x2="48" y2="35" stroke="#55C27A" strokeWidth="5.5" strokeLinecap="round" />
+                <ellipse cx="46" cy="35" rx="6.5" ry="3.5" fill="#ffffff" />
+                <circle cx="60" cy="20" r="3.5" fill="#ffffff" />
+              </g>
+            </svg>
+          </div>
+        </div>
+      )}
+
+      {/* Scene 5: Fade-in Premium Center Logo & Tagline */}
+      {scene === 'scene5' && (
+        <motion.div 
+          style={{ zIndex: 10, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }} 
+          initial={{ scale: 0.75, opacity: 0 }} 
+          animate={{ scale: 1, opacity: 1 }} 
+          transition={{ type: "spring", stiffness: 90, damping: 12 }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+            <motion.div 
+              animate={{ y: [0, -8, 0] }}
+              transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
+              style={{ 
+                width: 90, 
+                height: 90, 
+                borderRadius: '28px', 
+                background: 'linear-gradient(135deg, #8C63C7 0%, #6B4AA0 100%)', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                boxShadow: '0 20px 40px rgba(107, 74, 160, 0.4), inset 0 1px 2px rgba(255,255,255,0.2)',
+                border: '1px solid rgba(255,255,255,0.12)'
+              }}
+            >
+              <span style={{ fontSize: '2.5rem', fontWeight: 950, color: 'white' }}>B</span>
+            </motion.div>
+          </div>
+
+          <h1 style={{ 
+            fontSize: '2.8rem', 
+            fontWeight: 950, 
+            margin: '0 0 8px 0', 
+            background: 'linear-gradient(135deg, #ffffff 0%, #8C63C7 100%)', 
+            WebkitBackgroundClip: 'text', 
+            WebkitTextFillColor: 'transparent',
+            letterSpacing: '-1px'
+          }}>
+            BoostX
+          </h1>
+
+          <p style={{ 
+            color: 'rgba(255,255,255,0.75)', 
+            fontSize: '0.88rem', 
+            fontWeight: 700, 
+            margin: 0
+          }}>
+            Work Starts Here, Success Follows.
+          </p>
+        </motion.div>
+      )}
 
       {/* Floating Buttons Layer */}
       <AnimatePresence>
@@ -371,6 +812,7 @@ const SplashView = ({ settings, onFinish }: { settings: SplashSettings; onFinish
     </div>
   );
 };
+
 
 // --- Premium Onboarding Screen Component ---
 const OnboardingView = ({ screens, onSkip }: { screens: OnboardingScreen[]; onSkip: () => void }) => {

@@ -591,314 +591,7 @@ const IntroVideoView = ({ onFinish }: { onFinish: () => void }) => {
   );
 };
 
-// --- Cinematic Splash Screen Component ---
-const SplashView = ({ settings, onFinish }: { settings: SplashSettings; onFinish: (action?: 'signin' | 'signup' | 'intro_video' | 'onboarding') => void }) => {
-  const [showControls, setShowControls] = useState(false);
-  const [scene, setScene] = useState<'scene1' | 'scene2' | 'scene3' | 'scene4' | 'scene5'>('scene1');
-
-  useEffect(() => {
-    const hasWatchedIntro = localStorage.getItem('boostx_intro_watched_v1') === 'true';
-    const hasCompletedOnboarding = localStorage.getItem('boostx_onboarding_completed_v1') === 'true';
-
-    // Scene 1 -> Scene 2 (Box falls down fast): 800ms
-    const t2 = setTimeout(() => {
-      setScene('scene2');
-      // Optional Haptic Hook on Landing
-      try {
-        if (window.navigator && window.navigator.vibrate) {
-          window.navigator.vibrate([80, 40, 80]);
-        }
-      } catch (e) {}
-    }, 800);
-
-    // Scene 2 -> Scene 3 (Box unlocks & lid tilts open): 1900ms
-    const t3 = setTimeout(() => {
-      setScene('scene3');
-      try {
-        if (window.navigator && window.navigator.vibrate) {
-          window.navigator.vibrate(60);
-        }
-      } catch (e) {}
-    }, 1900);
-
-    // Scene 3 -> Scene 4 (Logo jumps out, sprouts robotic legs & runs): 2900ms
-    const t4 = setTimeout(() => {
-      setScene('scene4');
-    }, 2900);
-
-    // Scene 4 -> Scene 5 (Transition to welcome screen static logo & buttons): 4400ms
-    const t5 = setTimeout(() => {
-      if (!hasWatchedIntro) {
-        onFinish('intro_video');
-      } else if (!hasCompletedOnboarding) {
-        onFinish('onboarding');
-      } else {
-        setScene('scene5');
-        setShowControls(true);
-      }
-    }, 4400);
-
-    return () => {
-      clearTimeout(t2);
-      clearTimeout(t3);
-      clearTimeout(t4);
-      clearTimeout(t5);
-    };
-  }, []);
-
-  return (
-    <div style={{ position: 'relative', height: '100vh', width: '100%', maxWidth: '480px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', fontFamily: 'Cairo, sans-serif', boxSizing: 'border-box', boxShadow: '0 0 32px rgba(22, 5, 45, 0.12)' }}>
-      <CinematicStyles />
-      
-      {/* Animated Blur Gradient Mesh Background */}
-      <div className="mesh-container">
-        <div className="mesh-blob mesh-blob-1" />
-        <div className="mesh-blob mesh-blob-2" />
-        <div className="mesh-blob mesh-blob-3" />
-        <div className="mesh-blob mesh-blob-4" />
-      </div>
-
-      {/* Cinematic Fog/Smoke Layer */}
-      <div className="fog-overlay" />
-
-      {/* Frosted Glass Vector Noise Overlay */}
-      <div className="noise-overlay" />
-
-      {/* Cinematic Particles */}
-      <CinematicParticles />
-
-      {/* Scene 2 & 3: Glossy Futuristic Purple Delivery Box */}
-      {(scene === 'scene2' || scene === 'scene3') && (
-        <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
-          <div className="delivery-bag-wrapper delivery-bag-animate-enter">
-            <svg width="140" height="140" viewBox="0 0 140 140" style={{ overflow: 'visible' }}>
-              <defs>
-                <linearGradient id="purple-front-left" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#5c3a9e" />
-                  <stop offset="100%" stopColor="#220e3d" />
-                </linearGradient>
-                <linearGradient id="purple-front-right" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#8c63c7" />
-                  <stop offset="100%" stopColor="#3d1b6b" />
-                </linearGradient>
-                <linearGradient id="purple-lid-left" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#9c73df" />
-                  <stop offset="100%" stopColor="#4c2c8f" />
-                </linearGradient>
-                <linearGradient id="purple-lid-right" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#b38df7" />
-                  <stop offset="100%" stopColor="#5c36af" />
-                </linearGradient>
-                <linearGradient id="neon-glow" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#55C27A" />
-                  <stop offset="100%" stopColor="#3cd070" />
-                </linearGradient>
-              </defs>
-
-              {/* Box Body (Front Left Face) */}
-              <polygon points="20,70 70,95 70,140 20,115" fill="url(#purple-front-left)" stroke="#4b2e85" strokeWidth="0.5" />
-              
-              {/* Box Body (Front Right Face) */}
-              <polygon points="70,95 120,70 120,115 70,140" fill="url(#purple-front-right)" stroke="#5d35a8" strokeWidth="0.5" />
-
-              {/* Neon Green Accent Stripes */}
-              <polygon points="20,85 70,110 70,116 20,91" fill="url(#neon-glow)" opacity="0.85" />
-              <polygon points="70,110 120,85 120,91 70,116" fill="url(#neon-glow)" opacity="0.85" />
-
-              {/* Premium Brand Logo Stamp on Front Right Face */}
-              <g transform="translate(82, 92) skewY(-14) scale(0.65)">
-                <rect width="24" height="24" rx="6" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.3)" strokeWidth="1" />
-                <text x="6" y="18" fill="#ffffff" fontSize="15" fontWeight="950" fontFamily="Cairo">B</text>
-              </g>
-
-              {/* Top Lid Group */}
-              <g className={scene === 'scene3' ? 'bag-lid-open-class' : ''}>
-                <polygon points="20,70 70,95 70,82 20,57" fill="url(#purple-lid-left)" stroke="#4c2c8f" strokeWidth="0.5" />
-                <polygon points="70,95 120,70 120,57 70,82" fill="url(#purple-lid-right)" stroke="#5c36af" strokeWidth="0.5" />
-                <polygon points="20,57 70,32 120,57 70,82" fill="#7a4fb8" stroke="#8d5fd1" strokeWidth="0.5" />
-                <polygon points="60,47 70,42 80,47 70,52" fill="url(#neon-glow)" />
-                <line x1="70" y1="52" x2="70" y2="57" stroke="#ffffff" strokeWidth="1.5" />
-              </g>
-            </svg>
-            
-            {/* Scene 3: Lights Leaking and Gas Escaping */}
-            {scene === 'scene3' && (
-              <>
-                <div className="light-leak-glow" style={{ top: '-15px', left: '5px' }} />
-                <div className="gas-puff" style={{ top: '-40px', left: '20px', animationDelay: '0s' }} />
-                <div className="gas-puff" style={{ top: '-45px', left: '50px', animationDelay: '0.3s' }} />
-                <div className="gas-puff" style={{ top: '-38px', left: '80px', animationDelay: '0.6s' }} />
-              </>
-            )}
-          </div>
-          <div className="bag-shadow" />
-        </div>
-      )}
-
-      {/* Scene 4: BoostX Logo Jumps Out, Sprouts Robotic Legs & Runs */}
-      {scene === 'scene4' && (
-        <div className="logo-runner-wrapper">
-          {/* Neon Energy Trail */}
-          <div className="energy-trail" />
-
-          {/* Running Logo Body */}
-          <div className="logo-running-bounce electric-active" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <div 
-              className="logo-jump-animate"
-              style={{ 
-                width: 80, 
-                height: 80, 
-                borderRadius: '24px', 
-                background: 'linear-gradient(135deg, #8C63C7 0%, #6B4AA0 100%)', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                boxShadow: '0 15px 30px rgba(107, 74, 160, 0.4), inset 0 1px 2px rgba(255,255,255,0.2)',
-                border: '1px solid rgba(255,255,255,0.12)'
-              }}
-            >
-              <span style={{ fontSize: '2.2rem', fontWeight: 950, color: 'white' }}>B</span>
-            </div>
-            
-            {/* Futuristic Robotic Legs */}
-            <svg width="80" height="40" viewBox="0 0 80 40" style={{ overflow: 'visible', marginTop: -4 }}>
-              {/* Left Leg */}
-              <g className="leg-l">
-                <line x1="30" y1="5" x2="20" y2="20" stroke="#55C27A" strokeWidth="5.5" strokeLinecap="round" />
-                <line x1="20" y1="20" x2="32" y2="35" stroke="#55C27A" strokeWidth="5.5" strokeLinecap="round" />
-                <ellipse cx="34" cy="35" rx="6.5" ry="3.5" fill="#ffffff" />
-                <circle cx="20" cy="20" r="3.5" fill="#ffffff" />
-              </g>
-              {/* Right Leg */}
-              <g className="leg-r">
-                <line x1="50" y1="5" x2="60" y2="20" stroke="#55C27A" strokeWidth="5.5" strokeLinecap="round" />
-                <line x1="60" y1="20" x2="48" y2="35" stroke="#55C27A" strokeWidth="5.5" strokeLinecap="round" />
-                <ellipse cx="46" cy="35" rx="6.5" ry="3.5" fill="#ffffff" />
-                <circle cx="60" cy="20" r="3.5" fill="#ffffff" />
-              </g>
-            </svg>
-          </div>
-        </div>
-      )}
-
-      {/* Scene 5: Fade-in Premium Center Logo & Tagline */}
-      {scene === 'scene5' && (
-        <motion.div 
-          style={{ zIndex: 10, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }} 
-          initial={{ scale: 0.75, opacity: 0 }} 
-          animate={{ scale: 1, opacity: 1 }} 
-          transition={{ type: "spring", stiffness: 90, damping: 12 }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
-            <motion.div 
-              animate={{ y: [0, -8, 0] }}
-              transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
-              style={{ 
-                width: 90, 
-                height: 90, 
-                borderRadius: '28px', 
-                background: 'linear-gradient(135deg, #8C63C7 0%, #6B4AA0 100%)', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                boxShadow: '0 20px 40px rgba(107, 74, 160, 0.4), inset 0 1px 2px rgba(255,255,255,0.2)',
-                border: '1px solid rgba(255,255,255,0.12)'
-              }}
-            >
-              <span style={{ fontSize: '2.5rem', fontWeight: 950, color: 'white' }}>B</span>
-            </motion.div>
-          </div>
-
-          <h1 style={{ 
-            fontSize: '2.8rem', 
-            fontWeight: 950, 
-            margin: '0 0 8px 0', 
-            background: 'linear-gradient(135deg, #ffffff 0%, #8C63C7 100%)', 
-            WebkitBackgroundClip: 'text', 
-            WebkitTextFillColor: 'transparent',
-            letterSpacing: '-1px'
-          }}>
-            BoostX
-          </h1>
-
-          <p style={{ 
-            color: 'rgba(255,255,255,0.75)', 
-            fontSize: '0.88rem', 
-            fontWeight: 700, 
-            margin: 0
-          }}>
-            Work Starts Here, Success Follows.
-          </p>
-        </motion.div>
-      )}
-
-      {/* Floating Buttons Layer */}
-      <AnimatePresence>
-        {showControls && (
-          <motion.div 
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 30 }}
-            transition={{ type: "spring", stiffness: 80, damping: 15 }}
-            style={{ 
-              position: 'absolute', 
-              bottom: '50px', 
-              left: 24, 
-              right: 24, 
-              zIndex: 10,
-              display: 'flex', 
-              flexDirection: 'column', 
-              gap: 14,
-              boxSizing: 'border-box'
-            }}
-          >
-            <button 
-              onClick={() => onFinish('signup')}
-              style={{ 
-                background: 'linear-gradient(135deg, #55C27A 0%, #40a060 100%)', 
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                color: 'white',
-                fontSize: '0.9rem',
-                fontWeight: 900,
-                padding: '14px',
-                borderRadius: '16px',
-                cursor: 'pointer',
-                boxShadow: '0 8px 24px rgba(85, 194, 122, 0.3)',
-                transition: 'all 0.2s ease',
-                outline: 'none',
-                fontFamily: 'Cairo, sans-serif'
-              }}
-            >
-              Sign Up
-            </button>
-            
-            <button 
-              onClick={() => onFinish('signin')}
-              style={{ 
-                background: 'rgba(255, 255, 255, 0.05)', 
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                color: 'white',
-                fontSize: '0.9rem',
-                fontWeight: 900,
-                padding: '14px',
-                borderRadius: '16px',
-                cursor: 'pointer',
-                boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
-                backdropFilter: 'blur(10px)',
-                WebkitBackdropFilter: 'blur(10px)',
-                transition: 'all 0.2s ease',
-                outline: 'none',
-                fontFamily: 'Cairo, sans-serif'
-              }}
-            >
-              Sign In
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
+// Splash screen removed completely to make the app startup direct and instant.
 
 
 // --- Premium Onboarding SVGs ---
@@ -1371,7 +1064,15 @@ const LOCAL_DEFAULT_ONBOARDING_SCREENS: any[] = [
 
 // --- Unified App Root Router ---
 export default function App() {
-  const [appState, setAppState] = useState<'splash' | 'intro_video' | 'onboarding' | 'login' | 'main'>('splash');
+  const [appState, setAppState] = useState<'intro_video' | 'onboarding' | 'login' | 'main'>(() => {
+    const hasSession = !!localStorage.getItem('BX_CURRENT_USER');
+    const introWatched = localStorage.getItem('boostx_intro_watched_v1') === 'true';
+    const onboardingCompleted = localStorage.getItem('boostx_onboarding_completed_v1') === 'true';
+    if (hasSession) return 'main';
+    if (!introWatched) return 'intro_video';
+    if (!onboardingCompleted) return 'onboarding';
+    return 'login';
+  });
   const [currentTab, setCurrentTab] = useState<'home' | 'search' | 'offers' | 'cart' | 'orders' | 'profile' | 'points'>('home');
   
   // Auxiliary customer screens (overlay or routed states)
@@ -1488,8 +1189,10 @@ export default function App() {
       const onboardingCompleted = localStorage.getItem('boostx_onboarding_completed_v1') === 'true';
       if (introWatched && onboardingCompleted) {
         setAppState('login');
+      } else if (!introWatched) {
+        setAppState('intro_video');
       } else {
-        setAppState('splash');
+        setAppState('onboarding');
       }
     };
     checkActiveSession();
@@ -1660,24 +1363,8 @@ export default function App() {
     }
   };
 
-  if (appState === 'splash') {
-    return (
-      <AnimatePresence mode="wait">
-        <SplashView 
-          settings={splashSettings} 
-          onFinish={(action) => {
-            if (action === 'intro_video') {
-              setAppState('intro_video');
-            } else if (action === 'signin' || action === 'signup') {
-              setAppState('login');
-            } else {
-              setAppState('onboarding');
-            }
-          }} 
-        />
-      </AnimatePresence>
-    );
-  }
+  // Splash routing removed to play intro video immediately
+
 
   if (appState === 'intro_video') {
     return (

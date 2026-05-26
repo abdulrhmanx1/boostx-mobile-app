@@ -6,9 +6,11 @@ import {
 import { supabase } from '../supabaseClient';
 
 export const OrdersScreen = ({ 
+  currentUser,
   onTrackOrderClick, 
   onReorderClick 
 }: { 
+  currentUser?: any;
   onTrackOrderClick: (orderId?: string) => void;
   onReorderClick?: () => void;
 }) => {
@@ -22,9 +24,16 @@ export const OrdersScreen = ({
       setLoading(true);
       if (!supabase) return;
 
+      const customerId = currentUser?.id;
+      if (!customerId || customerId === '') {
+        setOrders([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('orders')
-        .select('*');
+        .select('*')
+        .eq('customer_id', customerId);
 
       if (!error && data) {
         // Sort by created_at descending
@@ -43,9 +52,9 @@ export const OrdersScreen = ({
   useEffect(() => {
     fetchOrders();
 
-    // Subscribe to realtime orders changes
-    const channel = supabase.channel('realtime_orders_screen')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+    const customerId = currentUser?.id || 'all';
+    const channel = supabase.channel(`realtime_orders_screen:${customerId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `customer_id=eq.${currentUser?.id || '00000000-0000-0000-0000-000000000000'}` }, () => {
         fetchOrders();
       })
       .subscribe();
@@ -53,7 +62,7 @@ export const OrdersScreen = ({
     return () => {
       channel.unsubscribe();
     };
-  }, []);
+  }, [currentUser]);
 
   // Filter orders based on selected tab
   const filteredOrders = orders.filter(o => {
@@ -175,16 +184,16 @@ export const OrdersScreen = ({
           filteredOrders.map(order => {
             const getStatusDetails = (statusStr: string) => {
               const status = (statusStr || '').toLowerCase();
-              if (['pending', 'قيد الانتظار', 'accepted', 'تم قبول طلبك'].includes(status)) {
+              if (['pending', 'قيد الانتظار', 'accepted', 'تم قبول طلبك', 'مقبول'].includes(status)) {
                 return { label: 'قيد الانتظار', color: '#d97706', bg: 'rgba(217,119,6,0.06)', border: '1px solid rgba(217,119,6,0.15)', progress: 15 };
               }
-              if (['preparing', 'جاري التجهيز', 'جاري التجهيز 👨‍🍳'].includes(status)) {
+              if (['preparing', 'جاري التجهيز', 'جاري التجهيز 👨‍🍳', 'قيد التجهيز'].includes(status)) {
                 return { label: 'جاري التجهيز 👨‍🍳', color: '#7c3aed', bg: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.15)', progress: 45 };
               }
-              if (['delivering', 'في الطريق', 'المندوب في الطريق', 'في الطريق للاستلام', 'heading_to_pickup', 'جاري التوصيل ⚡', 'delivering'].includes(status)) {
+              if (['delivering', 'في الطريق', 'المندوب في الطريق', 'في الطريق للاستلام', 'heading_to_pickup', 'جاري التوصيل ⚡', 'out_for_delivery', 'جاهز للتوصيل', 'تم التجهيز، بانتظار المندوب', 'تم التسليم للمندوب'].includes(status)) {
                 return { label: 'جاري التوصيل ⚡', color: '#10b981', bg: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)', progress: 80, glow: true };
               }
-              if (['completed', 'delivered', 'مكتمل', 'تم التسليم', 'تم تسليم الطلب'].includes(status)) {
+              if (['completed', 'delivered', 'مكتمل', 'تم التسليم', 'تم تسليم الطلب', 'تم التوصيل'].includes(status)) {
                 return { label: 'مكتمل ✔️', color: '#10b981', bg: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.1)', progress: 100 };
               }
               if (['cancelled', 'ملغى', 'ملغي'].includes(status)) {

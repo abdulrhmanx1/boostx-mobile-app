@@ -36,11 +36,11 @@ export const ProfileScreen = ({
   useEffect(() => {
     const fetchWallet = async () => {
       try {
-        if (!supabase) return;
+        if (!supabase || !currentUser?.id) return;
         const { data, error } = await supabase
           .from('wallets')
           .select('*')
-          .eq('user_id', currentUser?.id || 'usr_cust_1')
+          .eq('user_id', currentUser.id)
           .single();
         if (!error && data) {
           setWallet(data);
@@ -68,11 +68,11 @@ export const ProfileScreen = ({
   useEffect(() => {
     const fetchPrefs = async () => {
       try {
-        if (!supabase) return;
+        if (!supabase || !currentUser?.id) return;
         const { data, error } = await supabase
           .from('user_notification_preferences')
           .select('*')
-          .eq('user_id', currentUser?.id || 'usr_cust_1')
+          .eq('user_id', currentUser.id)
           .maybeSingle();
 
         if (!error && data) {
@@ -93,7 +93,7 @@ export const ProfileScreen = ({
 
   const updatePreference = async (key: string, value: boolean) => {
     try {
-      if (!supabase) return;
+      if (!supabase || !currentUser?.id) return;
       const updatedFields: any = {};
       
       // map state key to database field
@@ -109,19 +109,18 @@ export const ProfileScreen = ({
       const { data, error } = await supabase
         .from('user_notification_preferences')
         .update(updatedFields)
-        .eq('user_id', currentUser?.id || 'usr_cust_1');
+        .eq('user_id', currentUser.id);
         
       if (error || !data || data.length === 0) {
         // If not exists, insert it
         await supabase
           .from('user_notification_preferences')
           .insert({
-            user_id: currentUser?.id || 'usr_cust_1',
+            user_id: currentUser.id,
             order_updates: dbKey === 'order_updates' ? value : orderUpdates,
             promotional: dbKey === 'promotional' ? value : promotional,
             nearby_offers: dbKey === 'nearby_offers' ? value : nearbyOffers,
             sponsored_campaigns: dbKey === 'sponsored_campaigns' ? value : sponsoredCampaigns,
-            sound_vibe: dbKey === 'sound_vibe' ? value : soundVibe,
             device_token: deviceToken,
             platform: platform
           });
@@ -225,7 +224,7 @@ export const ProfileScreen = ({
               const { error } = await supabase
                 .from('wallets')
                 .update({ balance: currentBalance + amount })
-                .eq('user_id', currentUser?.id || 'usr_cust_1');
+                .eq('user_id', currentUser?.id);
               if (!error) {
                 alert(`تم شحن المحفظة الرقمية بـ ${amount} ر.س بنجاح! 💳`);
               }
@@ -715,10 +714,19 @@ export const ProfileScreen = ({
 
       {/* LOGOUT BUTTON */}
       <button 
-        onClick={() => {
+        onClick={async () => {
           const conf = window.confirm('هل أنت متأكد من تسجيل الخروج؟');
           if (conf) {
-            window.location.reload();
+            try {
+              if (supabase) {
+                await supabase.auth.signOut();
+              }
+            } catch (err) {
+              console.error('Error during live signout, forcing reset:', err);
+            } finally {
+              localStorage.removeItem('BX_CURRENT_USER');
+              window.location.reload();
+            }
           }
         }}
         style={{

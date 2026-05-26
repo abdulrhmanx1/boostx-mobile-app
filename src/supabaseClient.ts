@@ -2221,16 +2221,20 @@ export const sendWhatsAppMessage = async (to: string, message: string): Promise<
   }
 };
 
-// Mode selection state: default is sandbox unless config is successful AND user toggled live mode
-let useSandboxMode = true;
+// Mode selection state: default is LIVE unless realSupabase is null
+let useSandboxMode = false;
 
 // Force sandbox if realSupabase is null
 if (!realSupabase) {
   useSandboxMode = true;
 } else {
-  // Read preference from localStorage
+  // Read preference from localStorage, default to LIVE
   const pref = localStorage.getItem('BOOSTX_USE_LIVE_SUPABASE');
-  useSandboxMode = pref !== 'true';
+  if (pref === 'false') {
+    useSandboxMode = true;
+  } else {
+    useSandboxMode = false;
+  }
 }
 
 export const getSupabaseMode = () => {

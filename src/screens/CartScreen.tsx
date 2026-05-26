@@ -38,7 +38,11 @@ export const CartScreen = ({
   const fetchCartItems = async () => {
     try {
       setLoading(true);
-      const customerId = currentUser?.id || 'usr_cust_1';
+      const customerId = currentUser?.id;
+      if (!customerId) {
+        setItems([]);
+        return;
+      }
       
       const { data: cartData, error: cartError } = await supabase
         .from('carts')
@@ -69,7 +73,8 @@ export const CartScreen = ({
               desc: meta.extras && meta.extras.length > 0 ? meta.extras.join(' ، ') : (meta.notes || 'وجبة طازجة وساخنة'),
               price: meta.rawPrice || 15,
               qty: ci.quantity,
-              image: meta.image_url || 'https://images.unsplash.com/photo-1562967914-608f82629710?w=300&q=80'
+              image: meta.image_url || 'https://images.unsplash.com/photo-1562967914-608f82629710?w=300&q=80',
+              partnerId: meta.partnerId || 'p1'
             };
           });
           setItems(loaded);
@@ -145,39 +150,40 @@ export const CartScreen = ({
       setCartPayFailed(false);
       
       try {
-        const orderId = 'order-' + Math.floor(100 + Math.random() * 900);
-        
-        // 1. Insert order record into public.orders
-        const newOrder = {
-          id: orderId,
-          customer_id: currentUser?.id || 'usr_cust_1',
-          customer_name: customerName,
-          customer_phone: customerPhone,
-          driver_id: null,
-          driver_name: null,
-          driver_phone: null,
-          driver_vehicle: null,
-          pickup_location: items[0]?.partner || 'مطعم البيك (فرع الصحافة)',
-          dropoff_location: deliveryLocation,
-          pickup_latitude: 24.7136,
-          pickup_longitude: 46.6753,
-          dropoff_latitude: 24.7885,
-          dropoff_longitude: 46.6582,
-          status: 'قيد التجهيز',
-          total_amount: total,
-          tax_amount: Math.round(subtotal * 0.15 * 100) / 100, // 15% VAT
-          delivery_fee: deliveryFee,
-          payment_method: paymentMethod,
-          payment_status: paymentMethod === 'cash' ? 'unpaid' : 'paid',
-          created_at: new Date().toISOString()
-        };
+        // 1. Insert order record into public.orders and let database generate UUID
+        const { data: insertedOrder, error: orderError } = await supabase
+          .from('orders')
+          .insert({
+            customer_id: currentUser?.id,
+            customer_name: customerName,
+            customer_phone: customerPhone,
+            partner_id: items[0]?.partnerId || 'p1', // Link partner_id correctly
+            driver_id: null,
+            driver_name: null,
+            driver_phone: null,
+            driver_vehicle: null,
+            pickup_location: items[0]?.partner || 'مطعم البيك (فرع الصحافة)',
+            dropoff_location: deliveryLocation,
+            pickup_latitude: 24.7136,
+            pickup_longitude: 46.6753,
+            dropoff_latitude: 24.7885,
+            dropoff_longitude: 46.6582,
+            status: 'pending', // English status as per DB CHECK constraint
+            total_amount: total,
+            tax_amount: Math.round(subtotal * 0.15 * 100) / 100, // 15% VAT
+            delivery_fee: deliveryFee,
+            payment_method: paymentMethod,
+            payment_status: paymentMethod === 'cash' ? 'unpaid' : 'paid',
+            created_at: new Date().toISOString()
+          })
+          .select()
+          .single();
 
-        const { error: orderError } = await supabase.from('orders').insert(newOrder);
         if (orderError) throw orderError;
+        const orderId = insertedOrder.id;
 
-        // 2. Insert order items into public.order_items
+        // 2. Insert order items into public.order_items (letting DB generate UUIDs)
         const orderItemsToInsert = items.map(item => ({
-          id: 'oi-' + Math.floor(1000 + Math.random() * 9000),
           order_id: orderId,
           menu_item_id: item.productId,
           quantity: item.qty,
@@ -196,16 +202,14 @@ export const CartScreen = ({
 
         // Add a notification for new order placed
         await supabase.from('notifications').insert({
-          id: 'notif-' + Math.floor(100 + Math.random() * 900),
-          user_id: currentUser?.id || 'usr_cust_1',
+          user_id: currentUser?.id,
           type: 'order',
           title: 'تم استلام طلبك بنجاح! 🍗🍕',
-          body: `طلبك رقم #${orderId} قيد التجهيز الآن لدى ${items[0]?.partner || 'الشريك'}.`,
+          description: `طلبك رقم #${orderId.substring(0, 8)} قيد التجهيز الآن لدى ${items[0]?.partner || 'الشريك'}.`,
           image_url: items[0]?.image || 'https://images.unsplash.com/photo-1562967914-608f82629710?w=300&q=80',
-          target_route: 'order-tracking',
-          is_sponsored: false,
           created_at: new Date().toISOString(),
-          read: false
+          read: false,
+          unread: true
         });
 
         setIsPaying(false);

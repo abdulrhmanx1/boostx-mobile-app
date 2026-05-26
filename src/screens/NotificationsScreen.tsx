@@ -15,7 +15,7 @@ export const NotificationsScreen = ({
 }: { 
   onBack: () => void;
   currentUser?: any;
-  onTrackOrder?: () => void;
+  onTrackOrder?: (orderId?: string) => void;
   onViewOffer?: (offer: any) => void;
   onViewPartner?: (partner: any) => void;
 }) => {
@@ -23,12 +23,16 @@ export const NotificationsScreen = ({
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const currentUserId = currentUser?.id || 'usr_cust_1';
+  const currentUserId = currentUser?.id;
 
   // Fetch notifications
   const fetchNotifications = async () => {
     try {
-      if (!supabase) return;
+      if (!supabase || !currentUserId) {
+        setNotifications([]);
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       const { data, error } = await supabase
         .from('notifications')
@@ -50,13 +54,23 @@ export const NotificationsScreen = ({
   };
 
   useEffect(() => {
+    if (!currentUserId) return;
     fetchNotifications();
 
     // Subscribe to realtime changes
-    const channel = supabase.channel('realtime_notifications_screen')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
-        fetchNotifications();
-      })
+    const channel = supabase.channel(`realtime_notifications_screen:${currentUserId}`)
+      .on(
+        'postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'notifications', 
+          filter: `user_id=eq.${currentUserId}` 
+        }, 
+        () => {
+          fetchNotifications();
+        }
+      )
       .subscribe();
 
     return () => {
@@ -120,13 +134,13 @@ export const NotificationsScreen = ({
 
     // Trigger proper route deep linking
     if (notif.type === 'order' || notif.type === 'service') {
-      if (onTrackOrder) onTrackOrder();
+      if (onTrackOrder) onTrackOrder(notif.target_route);
     } 
     else if (['offer', 'store_offer', 'flash_offer'].includes(notif.type)) {
       if (onViewOffer) {
         // Construct a premium offer details payload
         const offerPayload = {
-          id: notif.id,
+          id: notif.target_route || notif.id,
           store_id: 'p1',
           store_name: notif.title.includes('النهدي') ? 'صيدلية النهدي الياسمين' : 'مطعم البيك الرواد',
           store_logo: notif.title.includes('النهدي') ? '💊' : '🍗',
@@ -137,7 +151,7 @@ export const NotificationsScreen = ({
           image_url: notif.image_url || 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&q=80',
           old_price: 68.00,
           new_price: 34.00,
-          description: notif.body,
+          description: notif.body || notif.description,
           rating: 4.9,
           stock_status: 'available',
           delivery_time: '١٥-٢٠ دقيقة',
@@ -152,14 +166,14 @@ export const NotificationsScreen = ({
       if (onViewPartner) {
         // Construct partner payload
         const partnerPayload = {
-          id: 'p1',
-          name: 'مطعم البيك الرواد',
-          category: 'مطاعم',
+          id: notif.target_route || 'p1',
+          name: notif.title.includes('النهدي') ? 'صيدلية النهدي الياسمين' : 'مطعم البيك الرواد',
+          category: notif.title.includes('النهدي') ? 'صيدليات' : 'مطاعم',
           rating: 4.9,
           reviews: '١٢.٥ ألف تقييم',
           distance: '١.٢ كم',
           time: '١٥-٢٥ دقيقة',
-          image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800&q=80',
+          image: notif.image_url || 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800&q=80',
           sponsored: true
         };
         onViewPartner(partnerPayload);
@@ -452,7 +466,7 @@ export const NotificationsScreen = ({
                               </span>
                             )}
                           </div>
-                          <p style={{ fontSize: '0.74rem', color: '#4b5563', margin: '4px 0 0 0', lineHeight: 1.45, fontWeight: 'bold' }}>{n.body}</p>
+                          <p style={{ fontSize: '0.74rem', color: '#4b5563', margin: '4px 0 0 0', lineHeight: 1.45, fontWeight: 'bold' }}>{n.body || n.description}</p>
                           <span style={{ fontSize: '0.62rem', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 4, marginTop: 8, fontWeight: 'bold' }}>
                             <Clock size={10} /> {formatNotificationTime(n.created_at)}
                           </span>
@@ -519,7 +533,7 @@ export const NotificationsScreen = ({
                               </span>
                             )}
                           </div>
-                          <p style={{ fontSize: '0.74rem', color: '#4b5563', margin: '4px 0 0 0', lineHeight: 1.45, fontWeight: 'bold' }}>{n.body}</p>
+                          <p style={{ fontSize: '0.74rem', color: '#4b5563', margin: '4px 0 0 0', lineHeight: 1.45, fontWeight: 'bold' }}>{n.body || n.description}</p>
                           <span style={{ fontSize: '0.62rem', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 4, marginTop: 8, fontWeight: 'bold' }}>
                             <Clock size={10} /> أمس، {formatNotificationTime(n.created_at)}
                           </span>
@@ -582,7 +596,7 @@ export const NotificationsScreen = ({
                               </span>
                             )}
                           </div>
-                          <p style={{ fontSize: '0.74rem', color: '#4b5563', margin: '4px 0 0 0', lineHeight: 1.45, fontWeight: 'bold' }}>{n.body}</p>
+                          <p style={{ fontSize: '0.74rem', color: '#4b5563', margin: '4px 0 0 0', lineHeight: 1.45, fontWeight: 'bold' }}>{n.body || n.description}</p>
                           <span style={{ fontSize: '0.62rem', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 4, marginTop: 8, fontWeight: 'bold' }}>
                             <Clock size={10} /> {new Date(n.created_at).toLocaleDateString('ar-SA')}
                           </span>

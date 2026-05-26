@@ -22,12 +22,14 @@ export const TrackingScreen = ({ orderId, onBack }: { orderId?: string | null; o
   // Fetch active order and driver location from live DB
   const refreshTrackingData = async () => {
     try {
-      const { data: order } = await supabase.from('orders').select('*').eq('id', targetOrderId).single();
-      if (order) {
+      const { data: order, error: orderErr } = await supabase.from('orders').select('*').eq('id', targetOrderId).single();
+      if (!orderErr && order) {
         setActiveOrder(order);
-        const { data: loc } = await supabase.from('driver_locations').select('*').eq('order_id', order.id).single();
-        if (loc) {
-          setDriverLocation(loc);
+        if (order.driver_id) {
+          const { data: loc } = await supabase.from('driver_locations').select('*').eq('driver_id', order.driver_id).maybeSingle();
+          if (loc) {
+            setDriverLocation(loc);
+          }
         }
       }
     } catch (e) {
@@ -36,23 +38,35 @@ export const TrackingScreen = ({ orderId, onBack }: { orderId?: string | null; o
   };
 
   useEffect(() => {
-    if (!isSimulating) {
-      refreshTrackingData();
-      const handleRealtime = (e: Event) => {
-        const detail = (e as CustomEvent).detail;
-        if (detail.table === 'orders' && detail.record.id === targetOrderId) {
-          setActiveOrder(detail.record);
+    if (isSimulating) return;
+
+    refreshTrackingData();
+
+    // Subscribe to realtime orders and driver locations
+    const orderChannel = supabase.channel(`realtime_tracking_order:${targetOrderId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `id=eq.${targetOrderId}` }, (payload: any) => {
+        if (payload.new) {
+          setActiveOrder(payload.new);
         }
-        if (detail.table === 'driver_locations' && detail.record.order_id === targetOrderId) {
-          setDriverLocation(detail.record);
-        }
-      };
-      window.addEventListener('BX_REALTIME_CHANGE', handleRealtime);
-      return () => {
-        window.removeEventListener('BX_REALTIME_CHANGE', handleRealtime);
-      };
+      })
+      .subscribe();
+
+    let locChannel: any;
+    if (activeOrder?.driver_id) {
+      locChannel = supabase.channel(`realtime_tracking_loc:${activeOrder.driver_id}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'driver_locations', filter: `driver_id=eq.${activeOrder.driver_id}` }, (payload: any) => {
+          if (payload.new) {
+            setDriverLocation(payload.new);
+          }
+        })
+        .subscribe();
     }
-  }, [isSimulating, targetOrderId]);
+
+    return () => {
+      orderChannel.unsubscribe();
+      if (locChannel) locChannel.unsubscribe();
+    };
+  }, [isSimulating, targetOrderId, activeOrder?.driver_id]);
 
   // Standard simulation logic when no real database updates are coming
   useEffect(() => {
@@ -183,13 +197,15 @@ export const TrackingScreen = ({ orderId, onBack }: { orderId?: string | null; o
         </motion.div>
 
         {/* Live Driver Marker */}
-        <motion.div style={{ position: 'absolute', top: driverY, left: driverX, transform: 'translate(-50%, -50%)', width: 46, height: 46, background: 'var(--color-success)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', border: '3px solid white', zIndex: 12, boxShadow: '0 0 25px rgba(16,185,129,0.6)' }}>
-          <Navigation2 size={22} style={{ transform: `rotate(${(driverLocation?.heading || 45) - 45}deg)` }} />
-        </motion.div>
+        {!isCompleted && (
+          <motion.div style={{ position: 'absolute', top: driverY, left: driverX, transform: 'translate(-50%, -50%)', width: 46, height: 46, background: 'var(--color-success)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', border: '3px solid white', zIndex: 12, boxShadow: '0 0 25px rgba(16,185,129,0.6)' }}>
+            <Navigation2 size={22} style={{ transform: `rotate(${(driverLocation?.heading || 45) - 45}deg)` }} />
+          </motion.div>
+        )}
       </div>
 
       {/* Information Panel Bottom Sheet */}
-      <div className="tracking-sheet" style={{ background: 'var(--color-primary-dark)', borderTop: '1px solid var(--glass-border)', padding: '20px', borderTopLeftRadius: 28, borderTopRightRadius: 28, zIndex: 20, boxShadow: '0 -10px 30px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', gap: 16, maxHeight: '50vh', overflowY: 'auto' }}>
+      <div className="tracking-sheet" style={{ background: 'var(--color-primary-dark)', borderTop: '1px solid var(--glass-border)', padding: '20px 20px calc(env(safe-area-inset-bottom, 20px) + 10px) 20px', borderTopLeftRadius: 28, borderTopRightRadius: 28, zIndex: 20, boxShadow: '0 -10px 30px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', gap: 16, maxHeight: '50vh', overflowY: 'auto' }}>
         <div className="sheet-handle" style={{ margin: '0 auto 4px', width: 40, height: 5, background: 'rgba(255,255,255,0.2)', borderRadius: 3 }}></div>
         
         {/* Estimated Time (ETA) */}
@@ -223,29 +239,35 @@ export const TrackingScreen = ({ orderId, onBack }: { orderId?: string | null; o
         </div>
 
         {/* Driver Profile */}
-        <div className="driver-card" style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-xl)', padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div className="driver-info" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--color-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 900, color: 'white' }}>أ</div>
-            <div className="driver-details" style={{ textAlign: 'right' }}>
-              <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'white', margin: 0 }}>أحمد محمد (المندوب)</h4>
-              <p style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', margin: '2px 0' }}>تويوتا كامري - أ ب ج ١٢٣</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-warning)', fontSize: '0.72rem', fontWeight: 700 }}>
-                <Star size={10} fill="currentColor" /> ٤.٩ (مندوب توصيل ممتاز)
+        {!isCompleted ? (
+          <div className="driver-card" style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-xl)', padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="driver-info" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--color-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 900, color: 'white' }}>أ</div>
+              <div className="driver-details" style={{ textAlign: 'right' }}>
+                <h4 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'white', margin: 0 }}>أحمد محمد (المندوب)</h4>
+                <p style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', margin: '2px 0' }}>تويوتا كامري - أ ب ج ١٢٣</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-warning)', fontSize: '0.72rem', fontWeight: 700 }}>
+                  <Star size={10} fill="currentColor" /> ٤.٩ (مندوب توصيل ممتاز)
+                </div>
               </div>
             </div>
+            <div className="driver-actions" style={{ display: 'flex', gap: 8 }}>
+              <button className="action-circle-btn chat" onClick={() => setShowChatPane(true)} style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.2)', color: 'var(--color-accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                <MessageCircle size={16} />
+              </button>
+              <a href="tel:+966522222222" style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
+                <Phone size={16} />
+              </a>
+              <a href="https://wa.me/966522222222" target="_blank" rel="noreferrer" style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 900 }}>WA</span>
+              </a>
+            </div>
           </div>
-          <div className="driver-actions" style={{ display: 'flex', gap: 8 }}>
-            <button className="action-circle-btn chat" onClick={() => setShowChatPane(true)} style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.2)', color: 'var(--color-accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-              <MessageCircle size={16} />
-            </button>
-            <a href="tel:+966522222222" style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
-              <Phone size={16} />
-            </a>
-            <a href="https://wa.me/966522222222" target="_blank" rel="noreferrer" style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: 900 }}>WA</span>
-            </a>
+        ) : (
+          <div className="driver-card" style={{ background: 'rgba(16, 185, 129, 0.06)', border: '1px solid rgba(16, 185, 129, 0.15)', borderRadius: 'var(--radius-xl)', padding: 14, textAlign: 'center', color: '#10b981', fontWeight: 'bold', fontSize: '0.76rem', direction: 'rtl' }}>
+            🏁 تم توصيل الطلب بنجاح. تم إنهاء مشاركة الموقع وبيانات الاتصال للمندوب لحماية الخصوصية والأمان.
           </div>
-        </div>
+        )}
 
         {/* Privacy Note */}
         <div style={{ background: 'rgba(168,85,247,0.04)', border: '1px solid rgba(168,85,247,0.1)', borderRadius: 12, padding: '10px 12px', display: 'flex', gap: 8, alignItems: 'center' }}>

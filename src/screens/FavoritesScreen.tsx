@@ -53,11 +53,15 @@ export const FavoritesScreen = ({
         setError(null);
         
         if (supabase) {
-          // Fetch raw favorites for user
+          if (!currentUser?.id) {
+            setFavoritePartners([]);
+            setLoading(false);
+            return;
+          }
           const { data: favs, error: sbError } = await supabase
             .from('favorites')
             .select('*')
-            .eq('user_id', currentUser?.id || 'usr_cust_1');
+            .eq('user_id', currentUser.id);
             
           if (sbError) throw sbError;
           
@@ -118,7 +122,7 @@ export const FavoritesScreen = ({
       const { error: deleteError } = await supabase
         .from('favorites')
         .delete()
-        .eq('user_id', currentUser?.id || 'usr_cust_1')
+        .eq('user_id', currentUser?.id)
         .eq('partner_id', partnerId);
       
       if (!deleteError) {

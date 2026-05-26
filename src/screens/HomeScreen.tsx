@@ -208,6 +208,8 @@ export const HomeScreen = ({
   ];
 
   // Dynamic connected database states
+  const [homeSections, setHomeSections] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [stories, setStories] = useState<any[]>([]);
   const [ads, setAds] = useState<any[]>([]);
   const [partnersNearby, setPartnersNearby] = useState<any[]>([]);
@@ -223,71 +225,103 @@ export const HomeScreen = ({
     try {
       if (!supabase) return;
 
-      // 1. Fetch Campaigns (stories, banners & promo alert)
-      const { data: campaignsData } = await supabase
+      // 0. Fetch Home Sections (ordering & visibility)
+      const { data: sectionsData, error: sectionsErr } = await supabase
+        .from('home_sections')
+        .select('*')
+        .order('display_order', { ascending: true });
+
+      if (sectionsErr) throw sectionsErr;
+      if (sectionsData && sectionsData.length > 0) {
+        setHomeSections(sectionsData);
+      } else {
+        setHomeSections([
+          { section_type: 'stories', is_visible: true },
+          { section_type: 'banners', is_visible: true },
+          { section_type: 'offers', is_visible: true },
+          { section_type: 'categories', is_visible: true },
+          { section_type: 'sponsored_campaigns', is_visible: true },
+          { section_type: 'partners', is_visible: true }
+        ]);
+      }
+
+      // 1. Fetch Banners from home_banners and ad_campaigns
+      const { data: homeBannersData, error: homeBannersErr } = await supabase
+        .from('home_banners')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (homeBannersErr) throw homeBannersErr;
+
+      const { data: campaignsData, error: campaignsErr } = await supabase
         .from('ad_campaigns')
         .select('*')
-        .eq('status', 'approved');
+        .eq('status', 'approved')
+        .eq('is_active', true);
 
-      if (campaignsData && campaignsData.length > 0) {
-        // Banners
-        const fetchedBanners = campaignsData
+      if (campaignsErr) throw campaignsErr;
+
+      const combinedBanners = [
+        ...(homeBannersData || []).map((b: any) => ({
+          id: b.id,
+          title: b.title,
+          subtitle: b.link_url || 'عرض مميز',
+          image: b.image_url,
+          color: 'linear-gradient(135deg, #1b0c36 0%, #06020c 100%)'
+        })),
+        ...(campaignsData || [])
           .filter((c: any) => c.placement === 'banners')
           .map((c: any) => ({
             id: c.id,
             title: c.title || 'عرض خاص 🍕',
             subtitle: c.tagline,
-            image: c.image_url,
+            image: c.image_url || c.bg_image_url,
             color: c.color || 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)'
-          }));
-        setAds(fetchedBanners.length > 0 ? fetchedBanners : fallbackAds);
+          }))
+      ];
+      setAds(combinedBanners.length > 0 ? combinedBanners : fallbackAds);
 
-        // Stories
-        const fetchedStories = campaignsData
-          .filter((c: any) => c.placement === 'stories')
-          .map((c: any) => ({
-            id: c.id,
-            partner: c.partner_name || 'بوسط إكس',
-            type: 'image',
-            media: c.image_url,
-            label: c.tagline || 'عروض مميزة 🔥',
-            viewed: false
-          }));
-        setStories(fetchedStories.length > 0 ? fetchedStories : fallbackStories);
+      // 2. Fetch Stories from approved ad_campaigns
+      const fetchedStories = (campaignsData || [])
+        .filter((c: any) => c.placement === 'stories')
+        .map((c: any) => ({
+          id: c.id,
+          partner: c.partner_name || 'بوسط إكس',
+          type: 'image',
+          media: c.image_url || c.bg_image_url,
+          label: c.tagline || 'عروض مميزة 🔥',
+          viewed: false
+        }));
+      setStories(fetchedStories.length > 0 ? fetchedStories : fallbackStories);
 
-        // Promo alert strip
-        const promoCampaign = campaignsData.find((c: any) => c.placement === 'promo_strip') || campaignsData.find((c: any) => c.placement === 'banners');
-        if (promoCampaign) {
-          setPromoText({
-            title: promoCampaign.title || promoCampaign.tagline || 'عروض مواسم السعودية الحصرية حية 🎟️',
-            subtitle: promoCampaign.tagline || 'خصومات حصرية وطلب فعاليات فوري'
-          });
-        } else {
-          setPromoText(null);
-        }
+      // 3. Fetch Promo alert strip
+      const promoCampaign = (campaignsData || []).find((c: any) => c.placement === 'promo_strip') || (campaignsData || []).find((c: any) => c.placement === 'banners');
+      if (promoCampaign) {
+        setPromoText({
+          title: promoCampaign.title || promoCampaign.tagline || 'عروض مواسم السعودية الحصرية حية 🎟️',
+          subtitle: promoCampaign.tagline || 'خصومات حصرية وطلب فعاليات فوري'
+        });
       } else {
-        setAds(fallbackAds);
-        setStories(fallbackStories);
         setPromoText(null);
       }
 
-      // 2. Fetch Categories (dynamic is_active filter)
-      const { data: categoriesData } = await supabase
+      // 4. Fetch Categories
+      const { data: categoriesData, error: categoriesErr } = await supabase
         .from('categories')
-        .select('*');
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
 
-      if (categoriesData && categoriesData.length > 0) {
-        const activeCategories = categoriesData.filter((c: any) => c.is_active !== false);
-        setCategoriesList(activeCategories.length > 0 ? activeCategories : fallbackCategories);
-      } else {
-        setCategoriesList(fallbackCategories);
-      }
+      if (categoriesErr) throw categoriesErr;
+      setCategoriesList(categoriesData && categoriesData.length > 0 ? categoriesData : fallbackCategories);
 
-      // 3. Fetch Partners (featured stores, is_active check)
-      const { data: partnersData } = await supabase
+      // 5. Fetch Partners (featured stores, is_active check)
+      const { data: partnersData, error: partnersErr } = await supabase
         .from('partners')
         .select('*');
 
+      if (partnersErr) throw partnersErr;
       if (partnersData && partnersData.length > 0) {
         const mappedPartners = partnersData.map((p: any) => ({
           id: p.id,
@@ -306,43 +340,72 @@ export const HomeScreen = ({
         setPartnersNearby(fallbackPartners);
       }
 
-      // 4. Fetch Sponsored Products & Flash Offers
-      const { data: sponsoredData } = await supabase
+      // 6. Fetch Offers from public.offers
+      const { data: offersData, error: offersErr } = await supabase
+        .from('offers')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (offersErr) throw offersErr;
+
+      const mappedOffers = (offersData || []).map((o: any) => ({
+        id: o.id,
+        title: o.title,
+        image_url: o.image_url || 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&q=80',
+        discount_percent: o.discount_percentage || 50,
+        store_logo: '🍔',
+        store_name: o.partner_name || 'عرض الشريك',
+        new_price: 25,
+        old_price: 50,
+        sponsored_until: o.expires_at || new Date(Date.now() + 6 * 3600 * 1000).toISOString(),
+        description: o.description || o.title,
+        rating: 4.9,
+        delivery_time: '١٥-٢٠ دقيقة',
+        images: [o.image_url || 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&q=80']
+      }));
+
+      // 7. Fetch Sponsored Products
+      const { data: sponsoredData, error: sponsoredErr } = await supabase
         .from('sponsored_products')
         .select('*')
         .eq('is_active', true);
 
-      if (sponsoredData && sponsoredData.length > 0) {
-        const mappedOffers = sponsoredData.map((o: any) => ({
-          id: o.id,
-          title: o.title,
-          image_url: o.image_url,
-          discount_percent: o.discount_percent || 50,
-          store_logo: o.store_logo || '🍔',
-          store_name: o.store_name || o.sponsored_by,
-          new_price: o.new_price,
-          old_price: o.old_price,
-          sponsored_until: o.expires_at || new Date(Date.now() + 6 * 3600 * 1000).toISOString(),
-          description: o.description || o.title,
-          rating: o.rating || 4.9,
-          delivery_time: o.delivery_time || '١٥-٢٠ دقيقة',
-          images: o.images || [o.image_url]
-        }));
+      if (sponsoredErr) throw sponsoredErr;
 
-        setFlashOffers(mappedOffers.filter((o: any) => o.discount_percent >= 50));
-        setSponsoredProducts(mappedOffers);
-      } else {
-        setFlashOffers(fallbackOffers);
-        setSponsoredProducts(fallbackOffers);
+      const mappedSponsored = (sponsoredData || []).map((o: any) => ({
+        id: o.id,
+        title: o.title,
+        image_url: o.image_url,
+        discount_percent: o.discount_percent || 50,
+        store_logo: o.store_logo || '🍔',
+        store_name: o.store_name || o.sponsored_by,
+        new_price: o.new_price,
+        old_price: o.old_price,
+        sponsored_until: o.expires_at || new Date(Date.now() + 6 * 3600 * 1000).toISOString(),
+        description: o.description || o.title,
+        rating: o.rating || 4.9,
+        delivery_time: o.delivery_time || '١٥-٢٠ دقيقة',
+        images: o.images || [o.image_url]
+      }));
+
+      const combinedOffers = [...mappedOffers, ...mappedSponsored];
+      setFlashOffers(combinedOffers.filter((o: any) => o.discount_percent >= 50));
+      setSponsoredProducts(mappedSponsored);
+
+      // 8. Fetch Active Order
+      const currentCustId = currentUser?.id;
+      if (!currentCustId) {
+        setOrdersEmpty(true);
+        return;
       }
-
-      // 5. Fetch Active Order
-      const currentCustId = currentUser?.id || 'usr_cust_1';
-      const { data: ordersData } = await supabase
+      const { data: ordersData, error: ordersErr } = await supabase
         .from('orders')
         .select('*')
         .eq('customer_id', currentCustId)
         .order('created_at', { ascending: false });
+
+      if (ordersErr) throw ordersErr;
 
       if (ordersData && ordersData.length > 0) {
         setOrdersEmpty(false);
@@ -358,8 +421,9 @@ export const HomeScreen = ({
         setActiveOrder(null);
       }
 
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching dynamic home page connection:', err);
+      setError(err.message || 'حدث خطأ أثناء تحميل البيانات');
     } finally {
       setLoading(false);
     }
@@ -368,7 +432,19 @@ export const HomeScreen = ({
   useEffect(() => {
     fetchHomeData();
 
-    // Set up Realtime subscriptions for all 9 components
+    // Set up Realtime subscriptions for all components
+    const homeSectionsChannel = supabase.channel('realtime:home_sections')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'home_sections' }, () => {
+        fetchHomeData();
+      })
+      .subscribe();
+
+    const homeBannersChannel = supabase.channel('realtime:home_banners')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'home_banners' }, () => {
+        fetchHomeData();
+      })
+      .subscribe();
+
     const campaignsChannel = supabase.channel('realtime:home_campaigns')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ad_campaigns' }, () => {
         fetchHomeData();
@@ -393,6 +469,12 @@ export const HomeScreen = ({
       })
       .subscribe();
 
+    const offersChannel = supabase.channel('realtime:home_offers')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'offers' }, () => {
+        fetchHomeData();
+      })
+      .subscribe();
+
     const ordersChannel = supabase.channel('realtime:home_orders')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
         fetchHomeData();
@@ -400,21 +482,30 @@ export const HomeScreen = ({
       .subscribe();
 
     return () => {
+      homeSectionsChannel.unsubscribe();
+      homeBannersChannel.unsubscribe();
       campaignsChannel.unsubscribe();
       categoriesChannel.unsubscribe();
       partnersChannel.unsubscribe();
       sponsoredChannel.unsubscribe();
+      offersChannel.unsubscribe();
       ordersChannel.unsubscribe();
     };
   }, [currentUser]);
 
   useEffect(() => {
+    if (!currentUser?.id) {
+      setUnreadCount(0);
+      return;
+    }
+
     const fetchUnreadCount = async () => {
       try {
         if (!supabase) return;
         const { data, error } = await supabase
           .from('notifications')
           .select('*')
+          .eq('user_id', currentUser.id)
           .eq('read', false);
         if (!error && data) {
           setUnreadCount(data.length);
@@ -426,16 +517,25 @@ export const HomeScreen = ({
 
     fetchUnreadCount();
 
-    const notifChannel = supabase.channel('realtime:home_notifications')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
-        fetchUnreadCount();
-      })
+    const notifChannel = supabase.channel(`realtime:home_notifications:${currentUser.id}`)
+      .on(
+        'postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'notifications', 
+          filter: `user_id=eq.${currentUser.id}` 
+        }, 
+        () => {
+          fetchUnreadCount();
+        }
+      )
       .subscribe();
 
     return () => {
       notifChannel.unsubscribe();
     };
-  }, []);
+  }, [currentUser]);
 
   // Story progression effect
   useEffect(() => {
@@ -468,6 +568,380 @@ export const HomeScreen = ({
     }, 5000);
     return () => clearInterval(timer);
   }, [ads.length]);
+
+  // 1. Stories Section
+  const renderStoriesSection = () => {
+    if (stories.length === 0) return null;
+    return (
+      <div style={{ width: '100%', overflow: 'hidden', marginBottom: '18px' }} key="stories-section">
+        <div 
+          className="stories-scroll no-scrollbar" 
+          style={{ 
+            display: 'flex', 
+            gap: 12, 
+            overflowX: 'auto', 
+            padding: '2px 20px', 
+            direction: 'rtl'
+          }}
+        >
+          {/* Add Story button for admins */}
+          {['partner', 'admin', 'superadmin'].includes(currentUser?.role) && onAdsManagerClick && (
+            <div onClick={onAdsManagerClick} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', flexShrink: 0, width: 60 }}>
+              <div style={{ width: 56, height: 56, borderRadius: '18px', background: 'rgba(255, 255, 255, 0.05)', border: '2px dashed rgba(168,85,247,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 2 }}>
+                <span style={{ fontSize: '1.2rem', color: '#c084fc', fontWeight: 900 }}>+</span>
+              </div>
+              <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>أعلن هنا</span>
+            </div>
+          )}
+
+          {/* Stories list */}
+          {stories.map((story, idx) => (
+            <div key={story.id} onClick={() => setActiveStoryIndex(idx)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', flexShrink: 0, width: 60 }}>
+              <div style={{ width: 56, height: 56, borderRadius: '18px', background: '#120b1f', border: '2px solid ' + (story.viewed ? 'rgba(255,255,255,0.15)' : '#c084fc'), padding: 2.5, boxShadow: '0 4px 10px rgba(0,0,0,0.3)' }}>
+                <img src={story.media} alt={story.partner} style={{ width: '100%', height: '100%', borderRadius: '13px', objectFit: 'cover' }} />
+              </div>
+              <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'rgba(255,255,255,0.9)', marginTop: 4, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', width: '100%', textAlign: 'center' }}>{story.partner}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // 2. Promo Strip Section
+  const renderPromoStripSection = () => {
+    if (!promoText) return null;
+    return (
+      <div style={{ padding: '0 20px 16px 20px' }} key="promo-strip-section">
+        <div 
+          onClick={() => onTrackOrderClick(activeOrder?.id || 'order-101')}
+          style={{ 
+            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(99, 102, 241, 0.12) 100%)', 
+            border: '1px solid rgba(16, 185, 129, 0.3)', 
+            borderRadius: '16px', 
+            padding: '10px 14px', 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            cursor: 'pointer',
+            direction: 'rtl',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+          }}
+        >
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <span style={{ fontSize: '1.1rem' }}>⚡</span>
+            <div style={{ textAlign: 'right' }}>
+              <span style={{ fontSize: '0.74rem', fontWeight: 900, color: 'white', display: 'block' }}>
+                {promoText.title}
+              </span>
+              <span style={{ fontSize: '0.62rem', color: 'rgba(255, 255, 255, 0.6)', display: 'block', marginTop: 1 }}>
+                {promoText.subtitle}
+              </span>
+            </div>
+          </div>
+          <ChevronLeft size={14} color="#10b981" />
+        </div>
+      </div>
+    );
+  };
+
+  // 3. Banners Section
+  const renderBannersSection = () => {
+    if (ads.length === 0) return null;
+    const safeIndex = activeHeroIndex < ads.length ? activeHeroIndex : 0;
+    const banner = ads[safeIndex];
+    if (!banner) return null;
+
+    return (
+      <section style={{ position: 'relative', width: '100%' }} key="banners-section">
+        <div style={{ width: '100%', height: 154, borderRadius: 20, overflow: 'hidden', background: banner.color, position: 'relative', display: 'flex', direction: 'rtl', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 6px 18px rgba(0,0,0,0.05)' }}>
+          <div style={{ flex: 1, padding: '16px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', zIndex: 2 }}>
+            <div>
+              <span style={{ fontSize: '0.58rem', background: 'rgba(168,85,247,0.25)', color: '#c084fc', padding: '2px 8px', borderRadius: 10, fontWeight: 900, border: '1px solid rgba(168,85,247,0.3)' }}>عروض حية 🏷️</span>
+              <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'white', marginTop: 6, lineHeight: 1.3 }}>{banner.title}</h3>
+              <p style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.7)', marginTop: 2, lineHeight: 1.3 }}>{banner.subtitle}</p>
+            </div>
+            <button className="btn btn-primary" style={{ padding: '4px 12px', borderRadius: 8, border: 'none', fontSize: '0.7rem', fontWeight: 900, width: 'fit-content', boxShadow: 'none' }}>اطلب الآن 🚀</button>
+          </div>
+          <div style={{ width: '38%', height: '100%', position: 'relative' }}>
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, ' + banner.color.split(' ')[2] + ', transparent)' }}></div>
+            <img src={banner.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 5, justifyContent: 'center', marginTop: 10 }}>
+          {ads.map((_, i) => (
+            <div key={i} onClick={() => setActiveHeroIndex(i)} style={{ width: i === safeIndex ? 18 : 5, height: 5, borderRadius: 2.5, background: i === safeIndex ? '#7c3aed' : 'rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'all 0.3s ease' }}></div>
+          ))}
+        </div>
+      </section>
+    );
+  };
+
+  // 4. Offers Section
+  const renderOffersSection = () => {
+    return (
+      <section key="offers-section" style={{ width: '100%' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, direction: 'rtl' }}>
+          <span style={{ fontSize: '0.94rem', fontWeight: 900, color: '#1e0b36', display: 'flex', alignItems: 'center', gap: 4 }}>عروض فلاش الحارّة اليومية <Flame size={14} color="#ef4444" fill="#ef4444" /></span>
+          <span onClick={() => onListingViewAllClick?.('offers')} style={{ fontSize: '0.72rem', color: '#7c3aed', fontWeight: 800, cursor: 'pointer' }}>شاهد الكل</span>
+        </div>
+        
+        <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 8, paddingLeft: 4, paddingRight: 4 }} className="no-scrollbar">
+          {flashOffers.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '24px 0', color: '#6b7280', width: '100%', fontSize: '0.78rem', background: '#ffffff', borderRadius: 16, border: '1px solid #eef2f6' }}>لا توجد عروض نشطة حالياً 🏷️</div>
+          ) : (
+            flashOffers.map(offer => (
+              <FlashOfferCard 
+                key={offer.id}
+                offer={offer}
+                onClick={() => onOfferClick?.(offer)}
+              />
+            ))
+          )}
+        </div>
+      </section>
+    );
+  };
+
+  // 5. Categories Section
+  const renderCategoriesSection = () => {
+    return (
+      <section key="categories-section" style={{ width: '100%' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, direction: 'rtl' }}>
+          <h3 style={{ fontSize: '0.94rem', fontWeight: 900, color: '#1e0b36' }}>ماذا تريد أن تطلب اليوم؟</h3>
+          <span onClick={() => onListingViewAllClick?.('restaurants')} style={{ fontSize: '0.72rem', color: '#7c3aed', fontWeight: 800, cursor: 'pointer' }}>شاهد الكل</span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+          {categoriesList.length === 0 ? (
+            <div style={{ gridColumn: 'span 4', textAlign: 'center', padding: '20px 0', color: '#6b7280', fontSize: '0.78rem' }}>لا توجد أقسام متوفرة حالياً 🛍️</div>
+          ) : (
+            categoriesList.map(cat => {
+              const renderCategoryIcon = (iconName: string) => {
+                switch (iconName) {
+                  case 'Utensils': return <Utensils size={22} />;
+                  case 'Pill': return <Pill size={22} />;
+                  case 'ShoppingCart': return <ShoppingCart size={22} />;
+                  case 'Megaphone': return <Megaphone size={22} />;
+                  case 'Printer': return <Printer size={22} />;
+                  case 'Gift': return <Gift size={22} />;
+                  case 'Hammer': return <Hammer size={22} />;
+                  case 'HomeIcon': return <HomeIcon size={22} />;
+                  default: return <Sparkles size={22} />;
+                }
+              };
+
+              return (
+                <div 
+                  key={cat.id} 
+                  onClick={() => setSelectedCategory(selectedCategory === cat.name ? null : cat.name)}
+                  style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    gap: 6, 
+                    cursor: 'pointer',
+                    transform: selectedCategory === cat.name ? 'scale(1.05)' : 'none',
+                    transition: 'all 0.2s ease',
+                    overflow: 'hidden'
+                  }}
+                >
+                  <div 
+                    style={{ 
+                      width: 48, 
+                      height: 48, 
+                      borderRadius: 16, 
+                      background: cat.bg || 'rgba(124, 58, 237, 0.05)', 
+                      color: cat.color || '#7c3aed', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      border: selectedCategory === cat.name ? `2px solid ${cat.color || '#7c3aed'}` : '1px solid rgba(0,0,0,0.03)',
+                      boxShadow: selectedCategory === cat.name ? `0 4px 10px rgba(0,0,0,0.05)` : 'none'
+                    }}
+                  >
+                    {renderCategoryIcon(cat.icon)}
+                  </div>
+                  <span style={{ fontSize: '0.66rem', fontWeight: 800, color: '#374151', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', width: '100%', textAlign: 'center' }}>{cat.name}</span>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </section>
+    );
+  };
+
+  // 6. Sponsored Campaigns Section
+  const renderSponsoredCampaignsSection = () => {
+    if (sponsoredProducts.length === 0) return null;
+    return (
+      <section className="cinematic-sponsored-section" key="sponsored-campaigns-section" style={{ width: '100%' }}>
+        {/* Background elements */}
+        <div className="cinematic-grid-bg" />
+        <div className="cinematic-glow-light" />
+        <div className="cinematic-glow-light-2" />
+
+        {/* Header row */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, direction: 'rtl', position: 'relative', zIndex: 2 }}>
+          <span style={{ fontSize: '0.94rem', fontWeight: 950, color: '#ffffff', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Sparkles size={16} color="#c084fc" fill="#c084fc" />
+            <span>منتجات بخصومات عالية</span>
+          </span>
+          <span 
+            onClick={onViewSponsoredAllClick}
+            style={{ fontSize: '0.72rem', color: '#c084fc', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 2 }}
+          >
+            شاهد الكل
+          </span>
+        </div>
+
+        {/* Horizontally scrollable list */}
+        <div 
+          style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 6, position: 'relative', zIndex: 2 }} 
+          className="no-scrollbar"
+        >
+          {sponsoredProducts.map(prod => (
+            <motion.div 
+              key={prod.id}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => onOfferClick?.(prod)}
+              className="sponsored-card-glass"
+            >
+              {/* LARGE Product Image */}
+              <div style={{ height: 116, position: 'relative', overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                <img src={prod.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                
+                {/* Discount Badge */}
+                <span style={{ position: 'absolute', top: 8, right: 8, background: '#ef4444', color: 'white', fontSize: '0.62rem', fontWeight: 900, padding: '2px 6px', borderRadius: 6 }}>
+                  {prod.discount_percent}% خصم
+                </span>
+
+                {/* Sponsored Badge */}
+                <span style={{ position: 'absolute', top: 8, left: 8, background: 'rgba(168, 85, 247, 0.85)', backdropFilter: 'blur(6px)', color: 'white', fontSize: '0.55rem', fontWeight: 900, padding: '2px 5px', borderRadius: 5 }}>
+                  ممول
+                </span>
+              </div>
+
+              {/* Body Content */}
+              <div style={{ padding: 10, flex: 1, display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+                <div>
+                  <h4 style={{ fontSize: '0.76rem', fontWeight: 900, color: 'white', margin: 0, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                    {prod.title}
+                  </h4>
+                  <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.5)', display: 'block', marginTop: 2, fontWeight: 'bold' }}>
+                    {prod.store_logo} {prod.store_name}
+                  </span>
+                </div>
+
+                {/* Price & Rating Footer */}
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', direction: 'rtl' }}>
+                    <span style={{ fontSize: '0.88rem', fontWeight: 950, color: '#c084fc' }}>{prod.new_price} ر.س</span>
+                    <span style={{ fontSize: '0.68rem', color: '#fca5a5', textDecoration: 'line-through', fontWeight: 'bold' }}>{prod.old_price} ر.س</span>
+                  </div>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 2, color: '#f59e0b', fontSize: '0.65rem', fontWeight: 800 }}>
+                      <Star size={10} fill="#f59e0b" color="#f59e0b" /> {prod.rating}
+                    </div>
+                    <button 
+                      style={{ 
+                        background: 'linear-gradient(135deg, #c084fc 0%, #7c3aed 100%)', 
+                        border: 'none', 
+                        color: 'white', 
+                        fontSize: '0.58rem', 
+                        fontWeight: 900, 
+                        padding: '3px 8px', 
+                        borderRadius: 6, 
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 6px rgba(168, 85, 247, 0.3)'
+                      }}
+                    >
+                      اطلب الآن
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+    );
+  };
+
+  // 7. Partners Section
+  const renderPartnersSection = () => {
+    return (
+      <section style={{ marginBottom: 20, width: '100%' }} key="partners-section">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, direction: 'rtl' }}>
+          <h3 style={{ fontSize: '0.94rem', fontWeight: 900, color: '#1e0b36' }}>المتاجر والخدمات القريبة منك 📍</h3>
+          <span style={{ fontSize: '0.72rem', color: '#7c3aed', fontWeight: 800 }}>تصفية الأقرب</span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {partnersNearby.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '30px 0', color: '#6b7280', fontSize: '0.78rem', background: '#ffffff', borderRadius: 20, border: '1px solid #eef2f6' }}>لا توجد متاجر نشطة حالياً بقربك 📍</div>
+          ) : (
+            partnersNearby
+              .filter(p => !selectedCategory || p.category === selectedCategory)
+              .map(p => (
+                <div 
+                  key={p.id} 
+                  onClick={() => onPartnerClick(p)}
+                  style={{ 
+                    background: '#ffffff', 
+                    border: '1px solid #eef2f6', 
+                    borderRadius: 20, 
+                    overflow: 'hidden', 
+                    cursor: 'pointer',
+                    position: 'relative',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.02)'
+                  }}
+                >
+                  <div style={{ height: 110, position: 'relative' }}>
+                    <img src={p.image} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 100%)' }}></div>
+                    {p.sponsored && (
+                      <span style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(124,58,237,0.22)', backdropFilter: 'blur(6px)', border: '1px solid rgba(124,58,237,0.3)', color: '#c084fc', fontSize: '0.62rem', fontWeight: 900, padding: '3px 8px', borderRadius: 10 }}>
+                        مميز وموثق ✨
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ padding: 12, textAlign: 'right' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h4 style={{ fontSize: '0.9rem', fontWeight: 900, color: '#1e0b36', margin: 0 }}>{p.name}</h4>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#f59e0b', fontSize: '0.74rem', fontWeight: 800 }}>
+                        <Star size={12} fill="#f59e0b" color="#f59e0b" /> {p.rating}
+                      </div>
+                    </div>
+                    <p style={{ fontSize: '0.7rem', color: '#6b7280', marginTop: 2, margin: '2px 0 0 0' }}>{p.category} • {p.reviews}</p>
+                    <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginTop: 10, borderTop: '1px solid #f1f5f9', paddingTop: 8, direction: 'rtl', fontSize: '0.7rem', color: '#4b5563' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><MapPin size={10} color="#7c3aed" /> تبعد {p.distance}</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Clock size={10} color="#10b981" /> تصل خلال {p.time}</span>
+                    </div>
+                  </div>
+                </div>
+              ))
+          )}
+        </div>
+      </section>
+    );
+  };
+
+  if (error) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'linear-gradient(135deg, #15052b 0%, #2e0854 100%)', color: 'white', fontFamily: 'Cairo, sans-serif', padding: 20, textAlign: 'center' }}>
+        <span style={{ fontSize: '2.5rem', marginBottom: 16 }}>⚠️</span>
+        <span style={{ fontSize: '1rem', fontWeight: 900, marginBottom: 8 }}>فشل الاتصال بالخادم</span>
+        <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)', marginBottom: 20 }}>{error}</span>
+        <button 
+          onClick={() => { setError(null); setLoading(true); fetchHomeData(); }}
+          style={{ background: 'linear-gradient(135deg, #c084fc 0%, #7c3aed 100%)', border: 'none', color: 'white', fontSize: '0.85rem', fontWeight: 900, padding: '10px 24px', borderRadius: 12, cursor: 'pointer', boxShadow: '0 4px 12px rgba(168, 85, 247, 0.4)' }}
+        >
+          إعادة المحاولة 🔄
+        </button>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -718,39 +1192,7 @@ export const HomeScreen = ({
           </div>
         </div>
 
-        {/* 3. Stories Highlights Row */}
-        <div style={{ width: '100%', overflow: 'hidden', marginBottom: '18px' }}>
-          <div 
-            className="stories-scroll no-scrollbar" 
-            style={{ 
-              display: 'flex', 
-              gap: 12, 
-              overflowX: 'auto', 
-              padding: '2px 20px', 
-              direction: 'rtl'
-            }}
-          >
-            {/* Add Story button for admins */}
-            {['partner', 'admin', 'superadmin'].includes(currentUser?.role) && onAdsManagerClick && (
-              <div onClick={onAdsManagerClick} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', flexShrink: 0, width: 60 }}>
-                <div style={{ width: 56, height: 56, borderRadius: '18px', background: 'rgba(255, 255, 255, 0.05)', border: '2px dashed rgba(168,85,247,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 2 }}>
-                  <span style={{ fontSize: '1.2rem', color: '#c084fc', fontWeight: 900 }}>+</span>
-                </div>
-                <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>أعلن هنا</span>
-              </div>
-            )}
 
-            {/* Stories list */}
-            {stories.map((story, idx) => (
-              <div key={story.id} onClick={() => setActiveStoryIndex(idx)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', flexShrink: 0, width: 60 }}>
-                <div style={{ width: 56, height: 56, borderRadius: '18px', background: '#120b1f', border: '2px solid ' + (story.viewed ? 'rgba(255,255,255,0.15)' : '#c084fc'), padding: 2.5, boxShadow: '0 4px 10px rgba(0,0,0,0.3)' }}>
-                  <img src={story.media} alt={story.partner} style={{ width: '100%', height: '100%', borderRadius: '13px', objectFit: 'cover' }} />
-                </div>
-                <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'rgba(255,255,255,0.9)', marginTop: 4, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', width: '100%', textAlign: 'center' }}>{story.partner}</span>
-              </div>
-            ))}
-          </div>
-        </div>
 
         {/* 4. Saudi Season Live Event Ticket Alert (Promo Strip) */}
         <div style={{ padding: '0 20px 16px 20px' }}>
@@ -828,257 +1270,33 @@ export const HomeScreen = ({
         PART 2: WHITE CONTENT AREA (Starts right after the curve)
         =====================================================================
       */}
+      {/* 
+        =====================================================================
+        PART 2: WHITE CONTENT AREA (Dynamic & Backend Controlled)
+        =====================================================================
+      */}
       <div style={{ padding: '24px 20px 0 20px', position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-        {/* Fixed Proportions Hero Banner Carousel */}
-        <section style={{ position: 'relative' }}>
-          <div style={{ width: '100%', height: 154, borderRadius: 20, overflow: 'hidden', background: ads[activeHeroIndex].color, position: 'relative', display: 'flex', direction: 'rtl', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 6px 18px rgba(0,0,0,0.05)' }}>
-            <div style={{ flex: 1, padding: '16px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', zIndex: 2 }}>
-              <div>
-                <span style={{ fontSize: '0.58rem', background: 'rgba(168,85,247,0.25)', color: '#c084fc', padding: '2px 8px', borderRadius: 10, fontWeight: 900, border: '1px solid rgba(168,85,247,0.3)' }}>عروض حية 🏷️</span>
-                <h3 style={{ fontSize: '1rem', fontWeight: 900, color: 'white', marginTop: 6, lineHeight: 1.3 }}>{ads[activeHeroIndex].title}</h3>
-                <p style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.7)', marginTop: 2, lineHeight: 1.3 }}>{ads[activeHeroIndex].subtitle}</p>
-              </div>
-              <button className="btn btn-primary" style={{ padding: '4px 12px', borderRadius: 8, border: 'none', fontSize: '0.7rem', fontWeight: 900, width: 'fit-content', boxShadow: 'none' }}>اطلب الآن 🚀</button>
-            </div>
-            <div style={{ width: '38%', height: '100%', position: 'relative' }}>
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, ' + ads[activeHeroIndex].color.split(' ')[2] + ', transparent)' }}></div>
-              <img src={ads[activeHeroIndex].image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 5, justifyContent: 'center', marginTop: 10 }}>
-            {ads.map((_, i) => (
-              <div key={i} onClick={() => setActiveHeroIndex(i)} style={{ width: i === activeHeroIndex ? 18 : 5, height: 5, borderRadius: 2.5, background: i === activeHeroIndex ? '#7c3aed' : 'rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'all 0.3s ease' }}></div>
-            ))}
-          </div>
-        </section>
-
-        {/* Daily Offers Flash Section */}
-        <section>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, direction: 'rtl' }}>
-            <span style={{ fontSize: '0.94rem', fontWeight: 900, color: '#1e0b36', display: 'flex', alignItems: 'center', gap: 4 }}>عروض فلاش الحارّة اليومية <Flame size={14} color="#ef4444" fill="#ef4444" /></span>
-            <span onClick={() => onListingViewAllClick?.('offers')} style={{ fontSize: '0.72rem', color: '#7c3aed', fontWeight: 800, cursor: 'pointer' }}>شاهد الكل</span>
-          </div>
-          
-          <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 8, paddingLeft: 4, paddingRight: 4 }} className="no-scrollbar">
-            {flashOffers.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '24px 0', color: '#6b7280', width: '100%', fontSize: '0.78rem', background: '#ffffff', borderRadius: 16, border: '1px solid #eef2f6' }}>لا توجد عروض نشطة حالياً 🏷️</div>
-            ) : (
-              flashOffers.map(offer => (
-                <FlashOfferCard 
-                  key={offer.id}
-                  offer={offer}
-                  onClick={() => onOfferClick?.(offer)}
-                />
-              ))
-            )}
-          </div>
-        </section>
-
-        {/* Polished 8 Categories Grid */}
-        <section>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, direction: 'rtl' }}>
-            <h3 style={{ fontSize: '0.94rem', fontWeight: 900, color: '#1e0b36' }}>ماذا تريد أن تطلب اليوم؟</h3>
-            <span onClick={() => onListingViewAllClick?.('restaurants')} style={{ fontSize: '0.72rem', color: '#7c3aed', fontWeight: 800, cursor: 'pointer' }}>شاهد الكل</span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-            {categoriesList.map(cat => {
-              const renderCategoryIcon = (iconName: string) => {
-                switch (iconName) {
-                  case 'Utensils': return <Utensils size={22} />;
-                  case 'Pill': return <Pill size={22} />;
-                  case 'ShoppingCart': return <ShoppingCart size={22} />;
-                  case 'Megaphone': return <Megaphone size={22} />;
-                  case 'Printer': return <Printer size={22} />;
-                  case 'Gift': return <Gift size={22} />;
-                  case 'Hammer': return <Hammer size={22} />;
-                  case 'HomeIcon': return <HomeIcon size={22} />;
-                  default: return <Sparkles size={22} />;
-                }
-              };
-
-              return (
-                <div 
-                  key={cat.id} 
-                  onClick={() => setSelectedCategory(selectedCategory === cat.name ? null : cat.name)}
-                  style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: 'center', 
-                    gap: 6, 
-                    cursor: 'pointer',
-                    transform: selectedCategory === cat.name ? 'scale(1.05)' : 'none',
-                    transition: 'all 0.2s ease',
-                    overflow: 'hidden'
-                  }}
-                >
-                  <div 
-                    style={{ 
-                      width: 48, 
-                      height: 48, 
-                      borderRadius: 16, 
-                      background: cat.bg || 'rgba(124, 58, 237, 0.05)', 
-                      color: cat.color || '#7c3aed', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
-                      border: selectedCategory === cat.name ? `2px solid ${cat.color || '#7c3aed'}` : '1px solid rgba(0,0,0,0.03)',
-                      boxShadow: selectedCategory === cat.name ? `0 4px 10px rgba(0,0,0,0.05)` : 'none'
-                    }}
-                  >
-                    {renderCategoryIcon(cat.icon)}
-                  </div>
-                  <span style={{ fontSize: '0.66rem', fontWeight: 800, color: '#374151', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', width: '100%', textAlign: 'center' }}>{cat.name}</span>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* Cinematic Sponsored Products Section: "منتجات بخصومات عالية" */}
-        {sponsoredProducts.length > 0 && (
-          <section className="cinematic-sponsored-section">
-            {/* Background elements */}
-            <div className="cinematic-grid-bg" />
-            <div className="cinematic-glow-light" />
-            <div className="cinematic-glow-light-2" />
-
-            {/* Header row */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, direction: 'rtl', position: 'relative', zIndex: 2 }}>
-              <span style={{ fontSize: '0.94rem', fontWeight: 950, color: '#ffffff', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Sparkles size={16} color="#c084fc" fill="#c084fc" />
-                <span>منتجات بخصومات عالية</span>
-              </span>
-              <span 
-                onClick={onViewSponsoredAllClick}
-                style={{ fontSize: '0.72rem', color: '#c084fc', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 2 }}
-              >
-                شاهد الكل
-              </span>
-            </div>
-
-            {/* Horizontally scrollable list */}
-            <div 
-              style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 6, position: 'relative', zIndex: 2 }} 
-              className="no-scrollbar"
-            >
-              {sponsoredProducts.map(prod => (
-                <motion.div 
-                  key={prod.id}
-                  whileTap={{ scale: 0.96 }}
-                  onClick={() => onOfferClick?.(prod)}
-                  className="sponsored-card-glass"
-                >
-                  {/* LARGE Product Image */}
-                  <div style={{ height: 116, position: 'relative', overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.02)' }}>
-                    <img src={prod.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    
-                    {/* Discount Badge */}
-                    <span style={{ position: 'absolute', top: 8, right: 8, background: '#ef4444', color: 'white', fontSize: '0.62rem', fontWeight: 900, padding: '2px 6px', borderRadius: 6 }}>
-                      {prod.discount_percent}% خصم
-                    </span>
-
-                    {/* Sponsored Badge */}
-                    <span style={{ position: 'absolute', top: 8, left: 8, background: 'rgba(168, 85, 247, 0.85)', backdropFilter: 'blur(6px)', color: 'white', fontSize: '0.55rem', fontWeight: 900, padding: '2px 5px', borderRadius: 5 }}>
-                      ممول
-                    </span>
-                  </div>
-
-                  {/* Body Content */}
-                  <div style={{ padding: 10, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxSizing: 'border-box' }}>
-                    <div>
-                      <h4 style={{ fontSize: '0.76rem', fontWeight: 900, color: 'white', margin: 0, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                        {prod.title}
-                      </h4>
-                      <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.5)', display: 'block', marginTop: 2, fontWeight: 'bold' }}>
-                        {prod.store_logo} {prod.store_name}
-                      </span>
-                    </div>
-
-                    {/* Price & Rating Footer */}
-                    <div style={{ marginTop: 8 }}>
-                      <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', direction: 'rtl' }}>
-                        <span style={{ fontSize: '0.88rem', fontWeight: 950, color: '#c084fc' }}>{prod.new_price} ر.س</span>
-                        <span style={{ fontSize: '0.68rem', color: '#fca5a5', textDecoration: 'line-through', fontWeight: 'bold' }}>{prod.old_price} ر.س</span>
-                      </div>
-                      
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 2, color: '#f59e0b', fontSize: '0.65rem', fontWeight: 800 }}>
-                          <Star size={10} fill="#f59e0b" color="#f59e0b" /> {prod.rating}
-                        </div>
-                        <button 
-                          style={{ 
-                            background: 'linear-gradient(135deg, #c084fc 0%, #7c3aed 100%)', 
-                            border: 'none', 
-                            color: 'white', 
-                            fontSize: '0.58rem', 
-                            fontWeight: 900, 
-                            padding: '3px 8px', 
-                            borderRadius: 6, 
-                            cursor: 'pointer',
-                            boxShadow: '0 2px 6px rgba(168, 85, 247, 0.3)'
-                          }}
-                        >
-                          اطلب الآن
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Sponsored Products Nearby Section */}
-        <section style={{ marginBottom: 20 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, direction: 'rtl' }}>
-            <h3 style={{ fontSize: '0.94rem', fontWeight: 900, color: '#1e0b36' }}>المتاجر والخدمات القريبة منك 📍</h3>
-            <span style={{ fontSize: '0.72rem', color: '#7c3aed', fontWeight: 800 }}>تصفية الأقرب</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {partnersNearby
-              .filter(p => !selectedCategory || p.category === selectedCategory)
-              .map(p => (
-                <div 
-                  key={p.id} 
-                  onClick={() => onPartnerClick(p)}
-                  style={{ 
-                    background: '#ffffff', 
-                    border: '1px solid #eef2f6', 
-                    borderRadius: 20, 
-                    overflow: 'hidden', 
-                    cursor: 'pointer',
-                    position: 'relative',
-                    boxShadow: '0 4px 16px rgba(0,0,0,0.02)'
-                  }}
-                >
-                  <div style={{ height: 110, position: 'relative' }}>
-                    <img src={p.image} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 100%)' }}></div>
-                    {p.sponsored && (
-                      <span style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(124,58,237,0.22)', backdropFilter: 'blur(6px)', border: '1px solid rgba(124,58,237,0.3)', color: '#c084fc', fontSize: '0.62rem', fontWeight: 900, padding: '3px 8px', borderRadius: 10 }}>
-                        مميز وموثق ✨
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ padding: 12, textAlign: 'right' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <h4 style={{ fontSize: '0.9rem', fontWeight: 900, color: '#1e0b36', margin: 0 }}>{p.name}</h4>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#f59e0b', fontSize: '0.74rem', fontWeight: 800 }}>
-                        <Star size={12} fill="#f59e0b" color="#f59e0b" /> {p.rating}
-                      </div>
-                    </div>
-                    <p style={{ fontSize: '0.7rem', color: '#6b7280', marginTop: 2, margin: '2px 0 0 0' }}>{p.category} • {p.reviews}</p>
-                    <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginTop: 10, borderTop: '1px solid #f1f5f9', paddingTop: 8, direction: 'rtl', fontSize: '0.7rem', color: '#4b5563' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><MapPin size={10} color="#7c3aed" /> تبعد {p.distance}</span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Clock size={10} color="#10b981" /> تصل خلال {p.time}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-          </div>
-        </section>
+        {homeSections
+          .filter(sec => sec.is_visible !== false && sec.is_active !== false)
+          .map(sec => {
+            switch (sec.section_type) {
+              case 'stories':
+                return renderStoriesSection();
+              case 'banners':
+                return renderBannersSection();
+              case 'offers':
+                return renderOffersSection();
+              case 'categories':
+                return renderCategoriesSection();
+              case 'sponsored_campaigns':
+                return renderSponsoredCampaignsSection();
+              case 'partners':
+                return renderPartnersSection();
+              default:
+                return null;
+            }
+          })}
 
       </div>
 

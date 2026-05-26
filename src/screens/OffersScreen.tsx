@@ -30,12 +30,12 @@ export const OffersScreen = ({
   useEffect(() => {
     const fetchWallet = async () => {
       try {
-        if (!supabase) return;
-        const { data, error } = await supabase
-          .from('wallets')
-          .select('*')
-          .eq('user_id', currentUser?.id || 'usr_cust_1')
-          .single();
+          if (!currentUser?.id) return;
+          const { data, error } = await supabase
+            .from('wallets')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .single();
         if (!error && data) {
           if (data.loyalty_points !== undefined) {
             setPoints(data.loyalty_points);
@@ -84,7 +84,7 @@ export const OffersScreen = ({
           const { error } = await supabase
             .from('wallets')
             .update({ loyalty_points: points - cost })
-            .eq('user_id', currentUser?.id || 'usr_cust_1');
+            .eq('user_id', currentUser?.id);
 
           if (!error) {
             setPoints(prev => prev - cost);

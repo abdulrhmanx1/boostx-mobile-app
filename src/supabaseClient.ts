@@ -52,7 +52,22 @@ const getInitialSandboxData = () => {
     { id: 'p1', name: 'مطعم البيك', biz_type: 'restaurant', rating: 4.9, reviews: '١٢.٥ ألف تقييم', distance: '١.٢ كم', time: '١٥-٢٥ دقيقة', image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800&q=80', sponsored: true, is_active: true, city: 'الرياض', district: 'الملقا', category: 'مطاعم' },
     { id: 'p2', name: 'صيدلية النهدي', biz_type: 'pharmacy', rating: 4.8, reviews: '٥.٢ ألف تقييم', distance: '٢.٥ كم', time: '١٠-٢٠ دقيقة', image: 'https://images.unsplash.com/photo-1585435557343-3b092031a831?w=800&q=80', sponsored: false, is_active: true, city: 'الرياض', district: 'الياسمين', category: 'صيدليات' },
     { id: 'p3', name: 'أسواق التميمي', biz_type: 'grocery', rating: 4.7, reviews: '٨.١ ألف تقييم', distance: '٣.١ كم', time: '٢٠-٣٠ دقيقة', image: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=800&q=80', sponsored: false, is_active: true, city: 'الرياض', district: 'العليا', category: 'تموينات' },
-    { id: 'p4', name: 'الركن الذهبي للطباعة', biz_type: 'services', rating: 4.9, reviews: '٩٠٠ تقييم', distance: '١.٨ كم', time: '٤٥-٦٠ دقيقة', image: 'https://images.unsplash.com/photo-1562564055-71e051d33c19?w=800&q=80', sponsored: true, is_active: true, city: 'الرياض', district: 'الملقا', category: 'مطابع' }
+    { id: 'p4', name: 'الركن الذهبي للطباعة', biz_type: 'services', rating: 4.9, reviews: '٩٠٠ تقييم', distance: '١.٨ كم', time: '٤٥-٦٠ دقيقة', image: 'https://images.unsplash.com/photo-1562564055-71e051d33c19?w=800&q=80', sponsored: true, is_active: true, city: 'الرياض', district: 'الملقا', category: 'مطابع' },
+    { 
+      id: 'tech_usr_1', 
+      name: 'خالد السريع (صيانة سباكة)', 
+      biz_type: 'services', 
+      rating: 4.8, 
+      reviews: '٢١٥ تقييم', 
+      distance: '١.٥ كم', 
+      time: '١٠-٢٠ دقيقة', 
+      image: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800&q=80', 
+      sponsored: true, 
+      is_active: true, 
+      city: 'الرياض', 
+      district: 'الصحافة', 
+      category: 'صنايعية' 
+    }
   ];
   const defaultDocuments: any[] = [];
   const defaultApplications = [
@@ -742,7 +757,16 @@ const getInitialSandboxData = () => {
     carts: getOrSet('BX_SANDBOX_CARTS', []),
     cart_items: getOrSet('BX_SANDBOX_CART_ITEMS', []),
     order_items: getOrSet('BX_SANDBOX_ORDER_ITEMS', []),
-    order_status_history: getOrSet('BX_SANDBOX_ORDER_STATUS_HISTORY', [])
+    order_status_history: getOrSet('BX_SANDBOX_ORDER_STATUS_HISTORY', []),
+    technician_services: getOrSet('BX_SANDBOX_TECHNICIAN_SERVICES', [
+      { id: 'ts-1', technician_id: 'tech_usr_1', name: 'إصلاح تسريبات المياه والصنابير', price: 65, duration: '٤٥ دقيقة', is_active: true },
+      { id: 'ts-2', technician_id: 'tech_usr_1', name: 'تسليك مجاري الصرف الصحي والانسدادات', price: 95, duration: '٦٠ دقيقة', is_active: true },
+      { id: 'ts-3', technician_id: 'tech_usr_1', name: 'تركيب خلاطات مياه ومغاسل جديدة', price: 150, duration: '٩٠ دقيقة', is_active: true }
+    ]),
+    service_bookings: getOrSet('BX_SANDBOX_SERVICE_BOOKINGS', [
+      { id: 'sb-1', customer_id: 'usr_cust_1', customer_name: 'عبدالرحمن الشهري', customer_phone: '+966551234567', technician_id: 'tech_usr_1', service_name: 'إصلاح تسريبات المياه والصنابير', price: 65, booking_date: 'اليوم، ٠٥:٣٠ م', location: 'حي الصحافة، الرياض', status: 'pending' },
+      { id: 'sb-2', customer_id: 'usr_cust_1', customer_name: 'سارة الدوسري', customer_phone: '+966552345678', technician_id: 'tech_usr_1', service_name: 'تركيب خلاطات مياه ومغاسل جديدة', price: 150, booking_date: 'غداً، ١٠:٠٠ ص', location: 'حي الملقا، الرياض', status: 'pending' }
+    ])
   };
 };
 
@@ -795,6 +819,8 @@ const saveSandboxData = () => {
   localStorage.setItem('BX_SANDBOX_CART_ITEMS', JSON.stringify((sandboxData as any).cart_items));
   localStorage.setItem('BX_SANDBOX_ORDER_ITEMS', JSON.stringify((sandboxData as any).order_items));
   localStorage.setItem('BX_SANDBOX_ORDER_STATUS_HISTORY', JSON.stringify((sandboxData as any).order_status_history));
+  localStorage.setItem('BX_SANDBOX_TECHNICIAN_SERVICES', JSON.stringify((sandboxData as any).technician_services));
+  localStorage.setItem('BX_SANDBOX_SERVICE_BOOKINGS', JSON.stringify((sandboxData as any).service_bookings));
 };
 
 // Console Log interface for UI visualization
@@ -1227,6 +1253,12 @@ const sandboxClient = {
         } else if (tableName === 'categories') {
           rlsRule = "Anyone can read categories";
           queryData = (sandboxData as any).categories || [];
+        } else if (tableName === 'technician_services') {
+          rlsRule = "Allow public read access to active services";
+          queryData = (sandboxData as any).technician_services || [];
+        } else if (tableName === 'service_bookings') {
+          rlsRule = "Allow customers or technicians to view bookings";
+          queryData = (sandboxData as any).service_bookings || [];
         } else if (tableName === 'favorites') {
           rlsRule = "auth.uid() = user_id";
           queryData = sandboxData.favorites || [
@@ -1458,6 +1490,8 @@ const sandboxClient = {
           else if (tableName === 'cart_items') { if (!(sandboxData as any).cart_items) (sandboxData as any).cart_items = []; (sandboxData as any).cart_items.push(newRow); }
           else if (tableName === 'order_items') { if (!(sandboxData as any).order_items) (sandboxData as any).order_items = []; (sandboxData as any).order_items.push(newRow); }
           else if (tableName === 'order_status_history') { if (!(sandboxData as any).order_status_history) (sandboxData as any).order_status_history = []; (sandboxData as any).order_status_history.push(newRow); }
+          else if (tableName === 'technician_services') { if (!(sandboxData as any).technician_services) (sandboxData as any).technician_services = []; (sandboxData as any).technician_services.push(newRow); }
+          else if (tableName === 'service_bookings') { if (!(sandboxData as any).service_bookings) (sandboxData as any).service_bookings = []; (sandboxData as any).service_bookings.push(newRow); }
           else if (tableName === 'delivery_status_history') { 
             if (!sandboxData.delivery_status_history) sandboxData.delivery_status_history = []; 
             sandboxData.delivery_status_history.push(newRow);
@@ -1801,6 +1835,8 @@ const sandboxClient = {
             else if (tableName === 'cart_items') targetCollection = (sandboxData as any).cart_items || [];
             else if (tableName === 'order_items') targetCollection = (sandboxData as any).order_items || [];
             else if (tableName === 'order_status_history') targetCollection = (sandboxData as any).order_status_history || [];
+            else if (tableName === 'technician_services') targetCollection = (sandboxData as any).technician_services || [];
+            else if (tableName === 'service_bookings') targetCollection = (sandboxData as any).service_bookings || [];
 
             const updatedRows = targetCollection.map(item => {
               if (item[column] === value) {

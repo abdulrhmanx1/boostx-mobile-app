@@ -30,6 +30,22 @@ export const StoresScreen = ({
   const [activeImgIndex, setActiveImgIndex] = useState(0);
   const [showToast, setShowToast] = useState(false);
 
+  // Booking details states for technician bookings
+  const [bookingDate, setBookingDate] = useState('اليوم، ٠٥:٣٠ م');
+  const [bookingLocation, setBookingLocation] = useState('حي الصحافة، الرياض');
+  const [clientName, setClientName] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
+  const [isBookingSubmitting, setIsBookingSubmitting] = useState(false);
+  const [bookingSuccess, setBookingSuccess] = useState(false);
+
+  // Prefill client name & phone from current user
+  useEffect(() => {
+    if (currentUser) {
+      setClientName(currentUser.name || '');
+      setClientPhone(currentUser.phone || '');
+    }
+  }, [currentUser]);
+
   // Dynamic state for partner and products
   const [currentPartner, setCurrentPartner] = useState<any>(partner || { id: 'p1', name: 'مطعم البيك', biz_type: 'restaurant', rating: 4.9, reviews: '١٢.٥ ألف تقييم', distance: '١.٢ كم', time: '١٥-٢٥ دقيقة', image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800&q=80', sponsored: true, is_active: true, city: 'الرياض', district: 'الملقا', category: 'مطاعم' });
   const [products, setProducts] = useState<any[]>([]);
@@ -68,34 +84,68 @@ export const StoresScreen = ({
     };
   }, [partner]);
 
-  // Fetch products and listen in realtime
+  // Fetch products or technician services and listen in realtime
   useEffect(() => {
     if (!currentPartner || !currentPartner.id) return;
 
+    const isCraftsman = currentPartner.category === 'صنايعية' || currentPartner.category === 'خدمات منزلية';
+
     const fetchProducts = async () => {
       try {
-        const { data, error } = await supabase
-          .from('products')
-          .select('*')
-          .eq('partner_id', currentPartner.id);
-        
-        if (!error && data) {
-          // Normalize image representation to ensure .images is always present as an array
-          const normalized = data.map((p: any) => ({
-            ...p,
-            images: p.images || [p.image_url || 'https://images.unsplash.com/photo-1562967914-608f82629710?w=600&q=80']
-          }));
-          setProducts(normalized);
+        if (isCraftsman) {
+          const { data, error } = await supabase
+            .from('technician_services')
+            .select('*')
+            .eq('technician_id', currentPartner.id);
+          
+          if (!error && data) {
+            const normalized = data.map((s: any) => ({
+              id: s.id,
+              name: s.name,
+              desc: `مدة الخدمة التقريبية: ${s.duration || 'غير محددة'}`,
+              price: `${s.price} ر.س`,
+              rawPrice: s.price,
+              images: ['https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=600&q=80'],
+              category: 'best', // Default to best tab
+              duration: s.duration
+            }));
+            setProducts(normalized);
+          }
+        } else {
+          const { data, error } = await supabase
+            .from('products')
+            .select('*')
+            .eq('partner_id', currentPartner.id);
+          
+          if (!error && data) {
+            const normalized = data.map((p: any) => ({
+              ...p,
+              images: p.images || [p.image_url || 'https://images.unsplash.com/photo-1562967914-608f82629710?w=600&q=80']
+            }));
+            setProducts(normalized);
+          }
         }
       } catch (err) {
-        console.error('Error fetching products:', err);
+        console.error('Error fetching items:', err);
       }
     };
 
     fetchProducts();
 
-    const channel = supabase.channel(`realtime:products:${currentPartner.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items', filter: `partner_id=eq.${currentPartner.id}` }, () => {
+    const channelName = isCraftsman
+      ? `realtime:technician_services:${currentPartner.id}`
+      : `realtime:products:${currentPartner.id}`;
+
+    const channelTable = isCraftsman
+      ? 'technician_services'
+      : 'menu_items';
+
+    const filterCol = isCraftsman
+      ? 'technician_id'
+      : 'partner_id';
+
+    const channel = supabase.channel(channelName)
+      .on('postgres_changes', { event: '*', schema: 'public', table: channelTable, filter: `${filterCol}=eq.${currentPartner.id}` }, () => {
         fetchProducts();
       })
       .subscribe();
@@ -201,7 +251,11 @@ export const StoresScreen = ({
     { id: 4, label: 'من نحن 🔴', icon: '📍', image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&q=80', tag: 'فروعنا تغطي الرياض، جدة، والدمام لخدمتكم.' }
   ];
 
-  const productCategories = [
+  const isCraftsman = currentPartner.category === 'صنايعية' || currentPartner.category === 'خدمات منزلية';
+
+  const productCategories = isCraftsman ? [
+    { id: 'best', label: 'الخدمات المتاحة 🛠️' }
+  ] : [
     { id: 'best', label: 'الأكثر مبيعاً ⭐' },
     { id: 'meals', label: 'الأطباق الرئيسية 🍔' },
     { id: 'sides', label: 'المقبلات والجانبيات 🍟' },
@@ -256,6 +310,49 @@ export const StoresScreen = ({
     setSelectedProduct(null);
   };
 
+  const handleBookService = async () => {
+    if (!clientName || !clientPhone || !bookingDate || !bookingLocation) {
+      alert('الرجاء تعبئة جميع الحقول المطلوبة. ⚠️');
+      return;
+    }
+
+    setIsBookingSubmitting(true);
+
+    const bookingRow = {
+      id: 'sb-' + Date.now(),
+      customer_id: currentUser?.id || 'usr_cust_guest',
+      customer_name: clientName,
+      customer_phone: clientPhone,
+      technician_id: currentPartner.id,
+      service_name: selectedProduct.name,
+      price: selectedProduct.rawPrice,
+      booking_date: bookingDate,
+      location: bookingLocation,
+      status: 'pending'
+    };
+
+    try {
+      const { error } = await supabase
+        .from('service_bookings')
+        .insert(bookingRow);
+
+      if (error) {
+        alert('حدث خطأ أثناء حجز الخدمة: ' + error.message);
+      } else {
+        setBookingSuccess(true);
+        setTimeout(() => {
+          setBookingSuccess(false);
+          setSelectedProduct(null);
+        }, 2000);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert('خطأ غير متوقع.');
+    } finally {
+      setIsBookingSubmitting(false);
+    }
+  };
+
   const toggleExtra = (extra: string) => {
     setSelectedExtras(prev => prev.includes(extra) ? prev.filter(e => e !== extra) : [...prev, extra]);
   };
@@ -290,7 +387,7 @@ export const StoresScreen = ({
         {/* Floating Store Logo / Emoji Circle */}
         <div style={{ position: 'absolute', bottom: 16, right: 24, display: 'flex', gap: 16, alignItems: 'flex-end', zIndex: 10 }}>
           <div style={{ width: 72, height: 72, borderRadius: '24px', background: 'linear-gradient(135deg, #c084fc 0%, #7c3aed 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.2rem', boxShadow: '0 8px 25px rgba(124,58,237,0.4)', border: '3.5px solid #120b1f' }}>
-            {currentPartner.category === 'صيدليات' ? '💊' : '🍔'}
+            {currentPartner.category === 'صيدليات' ? '💊' : (currentPartner.category === 'صنايعية' || currentPartner.category === 'خدمات منزلية') ? '🛠️' : '🍔'}
           </div>
           <div style={{ textAlign: 'right', paddingBottom: 6 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -561,45 +658,121 @@ export const StoresScreen = ({
               <h3 style={{ fontSize: '1.35rem', fontWeight: 900, color: 'white', margin: 0 }}>{selectedProduct.name}</h3>
               <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginTop: 6, lineHeight: 1.4 }}>{selectedProduct.desc}</p>
               
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '24px 0' }}>
-                <span style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--color-accent-light)' }}>{currentProductTotalPrice} ر.س</span>
-                <div style={{ display: 'flex', gap: 14, alignItems: 'center', direction: 'rtl' }}>
-                  <button onClick={() => setProductQty(q => Math.max(1, q - 1))} style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.03)', cursor: 'pointer' }}>-</button>
-                  <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{productQty}</span>
-                  <button onClick={() => setProductQty(q => q + 1)} style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.03)', cursor: 'pointer' }}>+</button>
-                </div>
-              </div>
+              {isCraftsman ? (
+                // Booking Form for Craftsman / Technician
+                <div style={{ marginTop: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <span style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--color-accent-light)' }}>سعر الخدمة: {selectedProduct.price}</span>
+                    <span style={{ fontSize: '0.8rem', background: 'rgba(192, 132, 252, 0.15)', color: '#c084fc', padding: '4px 12px', borderRadius: 8, fontWeight: 'bold' }}>مدة الخدمة: {selectedProduct.duration || 'غير محددة'}</span>
+                  </div>
 
-              {/* Extras Selector */}
-              <div style={{ marginBottom: 28 }}>
-                <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--color-text-muted)', marginBottom: 12 }}>خيارات وإضافات اختيارية</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {['ثوم إضافي (+١ ر.س)', 'جبنة إضافية (+٢ ر.س)', 'حجم عائلي كبير (+٥ ر.س)'].map(extra => (
-                    <div key={extra} onClick={() => toggleExtra(extra)} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid ' + (selectedExtras.includes(extra) ? 'var(--color-accent)' : 'rgba(255,255,255,0.05)'), borderRadius: 14, cursor: 'pointer', direction: 'rtl' }}>
-                      <span style={{ fontSize: '0.85rem', color: 'white' }}>{extra}</span>
-                      <div style={{ width: 22, height: 22, borderRadius: 8, border: '1.5px solid var(--color-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: selectedExtras.includes(extra) ? 'var(--color-accent)' : 'none', transition: 'all 0.2s' }}>
-                        {selectedExtras.includes(extra) && <Check size={14} color="white" />}
-                      </div>
+                  <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--color-text-muted)', marginBottom: 12 }}>بيانات حجز موعد الزيارة المنزلية 📅</h4>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+                    <div>
+                      <label style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: 6 }}>اسم العميل</label>
+                      <input 
+                        type="text" 
+                        value={clientName} 
+                        onChange={e => setClientName(e.target.value)} 
+                        placeholder="أدخل اسمك الكامل..."
+                        style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, color: 'white', fontSize: '0.85rem', outline: 'none', fontFamily: 'Cairo, sans-serif', boxSizing: 'border-box', textAlign: 'right' }} 
+                      />
                     </div>
-                  ))}
-                </div>
-              </div>
 
-              <button 
-                className="btn btn-primary" 
-                style={{ width: '100%', display: 'flex', gap: 12, justifyContent: 'center', alignItems: 'center', padding: '14px', borderRadius: 'var(--radius-pill)', fontWeight: 900, boxShadow: 'var(--glow-accent)' }} 
-                onClick={() => {
-                  const act = () => handleAddToCartClick(selectedProduct);
-                  if (currentUser?.isGuest) {
-                    onRequireLogin?.(act);
-                  } else {
-                    act();
-                  }
-                }}
-              >
-                <ShoppingCart size={20} />
-                <span>إضافة السلة الرقمية ({currentProductTotalPrice} ر.س)</span>
-              </button>
+                    <div>
+                      <label style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: 6 }}>رقم الجوال للتواصل</label>
+                      <input 
+                        type="tel" 
+                        value={clientPhone} 
+                        onChange={e => setClientPhone(e.target.value)} 
+                        placeholder="أدخل رقم الجوال..."
+                        style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, color: 'white', fontSize: '0.85rem', outline: 'none', fontFamily: 'Cairo, sans-serif', boxSizing: 'border-box', textAlign: 'right' }} 
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: 6 }}>الموعد المناسب للزيارة</label>
+                      <input 
+                        type="text" 
+                        value={bookingDate} 
+                        onChange={e => setBookingDate(e.target.value)} 
+                        placeholder="مثال: اليوم، ٠٥:٣٠ م أو غداً صباحاً..."
+                        style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, color: 'white', fontSize: '0.85rem', outline: 'none', fontFamily: 'Cairo, sans-serif', boxSizing: 'border-box', textAlign: 'right' }} 
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: 6 }}>عنوان موقع الزيارة المنزلية</label>
+                      <input 
+                        type="text" 
+                        value={bookingLocation} 
+                        onChange={e => setBookingLocation(e.target.value)} 
+                        placeholder="أدخل تفاصيل الحي والشارع..."
+                        style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, color: 'white', fontSize: '0.85rem', outline: 'none', fontFamily: 'Cairo, sans-serif', boxSizing: 'border-box', textAlign: 'right' }} 
+                      />
+                    </div>
+                  </div>
+
+                  <button 
+                    className="btn btn-primary" 
+                    disabled={isBookingSubmitting}
+                    style={{ width: '100%', display: 'flex', gap: 12, justifyContent: 'center', alignItems: 'center', padding: '14px', borderRadius: 'var(--radius-pill)', fontWeight: 900, boxShadow: 'var(--glow-accent)', cursor: 'pointer' }} 
+                    onClick={() => {
+                      if (currentUser?.isGuest) {
+                        onRequireLogin?.(handleBookService);
+                      } else {
+                        handleBookService();
+                      }
+                    }}
+                  >
+                    <span>{isBookingSubmitting ? 'جاري إرسال طلب الحجز...' : 'تأكيد حجز الخدمة الفوري 📅'}</span>
+                  </button>
+                </div>
+              ) : (
+                // Regular Food / Pharmacy details with Add to Cart
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '24px 0' }}>
+                    <span style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--color-accent-light)' }}>{currentProductTotalPrice} ر.س</span>
+                    <div style={{ display: 'flex', gap: 14, alignItems: 'center', direction: 'rtl' }}>
+                      <button onClick={() => setProductQty(q => Math.max(1, q - 1))} style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.03)', cursor: 'pointer' }}>-</button>
+                      <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{productQty}</span>
+                      <button onClick={() => setProductQty(q => q + 1)} style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.03)', cursor: 'pointer' }}>+</button>
+                    </div>
+                  </div>
+
+                  {/* Extras Selector */}
+                  <div style={{ marginBottom: 28 }}>
+                    <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--color-text-muted)', marginBottom: 12 }}>خيارات وإضافات اختيارية</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {['ثوم إضافي (+١ ر.س)', 'جبنة إضافية (+٢ ر.س)', 'حجم عائلي كبير (+٥ ر.س)'].map(extra => (
+                        <div key={extra} onClick={() => toggleExtra(extra)} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid ' + (selectedExtras.includes(extra) ? 'var(--color-accent)' : 'rgba(255,255,255,0.05)'), borderRadius: 14, cursor: 'pointer', direction: 'rtl' }}>
+                          <span style={{ fontSize: '0.85rem', color: 'white' }}>{extra}</span>
+                          <div style={{ width: 22, height: 22, borderRadius: 8, border: '1.5px solid var(--color-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: selectedExtras.includes(extra) ? 'var(--color-accent)' : 'none', transition: 'all 0.2s' }}>
+                            {selectedExtras.includes(extra) && <Check size={14} color="white" />}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button 
+                    className="btn btn-primary" 
+                    style={{ width: '100%', display: 'flex', gap: 12, justifyContent: 'center', alignItems: 'center', padding: '14px', borderRadius: 'var(--radius-pill)', fontWeight: 900, boxShadow: 'var(--glow-accent)' }} 
+                    onClick={() => {
+                      const act = () => handleAddToCartClick(selectedProduct);
+                      if (currentUser?.isGuest) {
+                        onRequireLogin?.(act);
+                      } else {
+                        act();
+                      }
+                    }}
+                  >
+                    <ShoppingCart size={20} />
+                    <span>إضافة السلة الرقمية ({currentProductTotalPrice} ر.س)</span>
+                  </button>
+                </>
+              )}
             </motion.div>
           </motion.div>
         )}
@@ -611,6 +784,12 @@ export const StoresScreen = ({
           <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} style={{ position: 'fixed', bottom: 40, left: 24, right: 24, background: 'var(--color-success)', color: 'white', padding: '12px 24px', borderRadius: 12, display: 'flex', gap: 10, alignItems: 'center', zIndex: 200, justifyContent: 'center', boxShadow: '0 8px 25px rgba(16,185,129,0.3)' }}>
             <Check size={20} />
             <span style={{ fontWeight: 'bold' }}>تمت إضافة الوجبة إلى السلة الرقمية بنجاح! 🛒</span>
+          </motion.div>
+        )}
+        {bookingSuccess && (
+          <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} style={{ position: 'fixed', bottom: 40, left: 24, right: 24, background: 'var(--color-success)', color: 'white', padding: '12px 24px', borderRadius: 12, display: 'flex', gap: 10, alignItems: 'center', zIndex: 200, justifyContent: 'center', boxShadow: '0 8px 25px rgba(16,185,129,0.3)' }}>
+            <Check size={20} />
+            <span style={{ fontWeight: 'bold' }}>تم إرسال طلب الحجز بنجاح! الفني بانتظارك 📅🛠️</span>
           </motion.div>
         )}
       </AnimatePresence>

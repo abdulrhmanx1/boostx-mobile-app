@@ -38,6 +38,87 @@ import type {
 // --- Premium CSS Keyframes Injected Dynamically ---
 const CinematicStyles = () => (
   <style dangerouslySetInnerHTML={{ __html: `
+    @keyframes mesh-blob-1 {
+      0% { transform: translate(0px, 0px) scale(1); }
+      33% { transform: translate(30px, -50px) scale(1.15); }
+      66% { transform: translate(-20px, 20px) scale(0.9); }
+      100% { transform: translate(0px, 0px) scale(1); }
+    }
+    @keyframes mesh-blob-2 {
+      0% { transform: translate(0px, 0px) scale(1); }
+      33% { transform: translate(-40px, 40px) scale(0.9); }
+      66% { transform: translate(40px, -20px) scale(1.2); }
+      100% { transform: translate(0px, 0px) scale(1); }
+    }
+    @keyframes mesh-blob-3 {
+      0% { transform: translate(0px, 0px) scale(1); }
+      33% { transform: translate(50px, 30px) scale(1.2); }
+      66% { transform: translate(-30px, -30px) scale(0.85); }
+      100% { transform: translate(0px, 0px) scale(1); }
+    }
+    @keyframes mesh-blob-4 {
+      0% { transform: translate(0px, 0px) scale(1); }
+      33% { transform: translate(-20px, -40px) scale(1.1); }
+      66% { transform: translate(30px, 50px) scale(0.95); }
+      100% { transform: translate(0px, 0px) scale(1); }
+    }
+    .mesh-container {
+      position: absolute;
+      inset: 0;
+      background-color: #1E1230;
+      overflow: hidden;
+      z-index: 1;
+    }
+    .mesh-blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.55;
+      mix-blend-mode: screen;
+      pointer-events: none;
+    }
+    .mesh-blob-1 {
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, #6B4AA0 0%, transparent 80%);
+      top: -10%;
+      left: -10%;
+      animation: mesh-blob-1 12s infinite alternate ease-in-out;
+    }
+    .mesh-blob-2 {
+      width: 450px;
+      height: 450px;
+      background: radial-gradient(circle, #8C63C7 0%, transparent 80%);
+      bottom: -10%;
+      right: -10%;
+      animation: mesh-blob-2 14s infinite alternate ease-in-out;
+    }
+    .mesh-blob-3 {
+      width: 350px;
+      height: 350px;
+      background: radial-gradient(circle, #55C27A 0%, transparent 80%);
+      top: 40%;
+      right: -5%;
+      animation: mesh-blob-3 10s infinite alternate ease-in-out;
+    }
+    .mesh-blob-4 {
+      width: 380px;
+      height: 380px;
+      background: radial-gradient(circle, #6B4AA0 0%, transparent 80%);
+      bottom: 30%;
+      left: -5%;
+      animation: mesh-blob-4 13s infinite alternate ease-in-out;
+    }
+    .noise-overlay {
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 0);
+      background-size: 4px 4px;
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      z-index: 2;
+      pointer-events: none;
+    }
     @keyframes electric-pulse {
       0% { transform: scale(1); filter: drop-shadow(0 0 10px rgba(168,85,247,0.4)) brightness(1); }
       50% { transform: scale(1.04); filter: drop-shadow(0 0 35px rgba(168,85,247,0.85)) brightness(1.2); }
@@ -148,65 +229,145 @@ const CinematicStyles = () => (
 );
 
 // --- Cinematic Splash Screen Component ---
-const SplashView = ({ settings, onFinish }: { settings: SplashSettings; onFinish: () => void }) => {
+const SplashView = ({ settings, onFinish }: { settings: SplashSettings; onFinish: (action?: 'signin' | 'signup') => void }) => {
+  const [showControls, setShowControls] = useState(false);
+
   useEffect(() => {
+    // Show logo first, then fade in buttons after 1200ms
     const timer = setTimeout(() => {
-      onFinish();
-    }, settings.duration_ms || 2500);
+      setShowControls(true);
+    }, 1200);
     return () => clearTimeout(timer);
-  }, [onFinish, settings.duration_ms]);
+  }, []);
 
   return (
-    <div className="cinematic-splash-bg">
+    <div style={{ position: 'relative', height: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', fontFamily: 'Cairo, sans-serif', boxSizing: 'border-box' }}>
       <CinematicStyles />
-      {/* Lightning simulation */}
-      {settings.animation_type === 'electric' && <div className="lightning-streak-overlay" />}
       
-      {/* Floating Orbs */}
-      {settings.show_green_glow && <div className="floating-green-glow" />}
-      <div className="floating-purple-glow" />
-
-      {/* Floating Particles */}
-      <div className="particles-layer">
-        {[...Array(12)].map((_, i) => {
-          const size = Math.random() * 5 + 2;
-          const left = Math.random() * 100;
-          const bottom = Math.random() * 20;
-          const delay = Math.random() * 4;
-          return (
-            <div 
-              key={i} 
-              className="particle" 
-              style={{ 
-                width: size, 
-                height: size, 
-                left: `${left}%`, 
-                bottom: `${bottom}%`, 
-                animationDelay: `${delay}s`,
-                animationDuration: `${Math.random() * 4 + 4}s` 
-              }} 
-            />
-          );
-        })}
+      {/* Animated Blur Gradient Mesh Background */}
+      <div className="mesh-container">
+        <div className="mesh-blob mesh-blob-1" />
+        <div className="mesh-blob mesh-blob-2" />
+        <div className="mesh-blob mesh-blob-3" />
+        <div className="mesh-blob mesh-blob-4" />
       </div>
 
+      {/* Frosted Glass Vector Noise Overlay */}
+      <div className="noise-overlay" />
+
+      {/* Center Logo & Title */}
       <motion.div 
-        style={{ zIndex: 10, textAlign: 'center' }} 
-        initial={{ scale: 0.82, opacity: 0 }} 
+        style={{ zIndex: 10, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }} 
+        initial={{ scale: 0.85, opacity: 0 }} 
         animate={{ scale: 1, opacity: 1 }} 
-        transition={{ type: "spring", stiffness: 90, damping: 12, delay: 0.1 }}
+        transition={{ type: "spring", stiffness: 90, damping: 12 }}
       >
-        <motion.h1 className="electric-logo-text">BoostX</motion.h1>
-        <motion.div 
-          initial={{ opacity: 0, y: 12 }} 
-          animate={{ opacity: 1, y: 0 }} 
-          transition={{ delay: 0.7 }}
-          style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.7)', fontSize: '0.9rem', fontWeight: 700 }}
-        >
-          <span>السوق السعودي الشامل</span>
-          <span style={{ color: '#10b981' }}>⚡</span>
-        </motion.div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+          <motion.div 
+            animate={{ y: [0, -8, 0] }}
+            transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
+            style={{ 
+              width: 90, 
+              height: 90, 
+              borderRadius: '28px', 
+              background: 'linear-gradient(135deg, #8C63C7 0%, #6B4AA0 100%)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              boxShadow: '0 20px 40px rgba(107, 74, 160, 0.4), inset 0 1px 2px rgba(255,255,255,0.2)',
+              border: '1px solid rgba(255,255,255,0.12)'
+            }}
+          >
+            <span style={{ fontSize: '2.5rem', fontWeight: 950, color: 'white' }}>B</span>
+          </motion.div>
+        </div>
+
+        <h1 style={{ 
+          fontSize: '2.8rem', 
+          fontWeight: 950, 
+          margin: '0 0 8px 0', 
+          background: 'linear-gradient(135deg, #ffffff 0%, #8C63C7 100%)', 
+          WebkitBackgroundClip: 'text', 
+          WebkitTextFillColor: 'transparent',
+          letterSpacing: '-1px'
+        }}>
+          BoostX
+        </h1>
+
+        <p style={{ 
+          color: 'rgba(255,255,255,0.75)', 
+          fontSize: '0.88rem', 
+          fontWeight: 700, 
+          margin: 0
+        }}>
+          Work Starts Here, Success Follows.
+        </p>
       </motion.div>
+
+      {/* Floating Buttons Layer */}
+      <AnimatePresence>
+        {showControls && (
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 30 }}
+            transition={{ type: "spring", stiffness: 80, damping: 15 }}
+            style={{ 
+              position: 'absolute', 
+              bottom: '50px', 
+              left: 24, 
+              right: 24, 
+              zIndex: 10,
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: 14,
+              boxSizing: 'border-box'
+            }}
+          >
+            <button 
+              onClick={() => onFinish('signup')}
+              style={{ 
+                background: 'linear-gradient(135deg, #55C27A 0%, #40a060 100%)', 
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: 'white',
+                fontSize: '0.9rem',
+                fontWeight: 900,
+                padding: '14px',
+                borderRadius: '16px',
+                cursor: 'pointer',
+                boxShadow: '0 8px 24px rgba(85, 194, 122, 0.3)',
+                transition: 'all 0.2s ease',
+                outline: 'none',
+                fontFamily: 'Cairo, sans-serif'
+              }}
+            >
+              Sign Up
+            </button>
+            
+            <button 
+              onClick={() => onFinish('signin')}
+              style={{ 
+                background: 'rgba(255, 255, 255, 0.05)', 
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                color: 'white',
+                fontSize: '0.9rem',
+                fontWeight: 900,
+                padding: '14px',
+                borderRadius: '16px',
+                cursor: 'pointer',
+                boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                transition: 'all 0.2s ease',
+                outline: 'none',
+                fontFamily: 'Cairo, sans-serif'
+              }}
+            >
+              Sign In
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -834,7 +995,20 @@ export default function App() {
   };
 
   if (appState === 'splash') {
-    return <AnimatePresence mode="wait"><SplashView settings={splashSettings} onFinish={() => setAppState('onboarding')} /></AnimatePresence>;
+    return (
+      <AnimatePresence mode="wait">
+        <SplashView 
+          settings={splashSettings} 
+          onFinish={(action) => {
+            if (action === 'signin' || action === 'signup') {
+              setAppState('login');
+            } else {
+              setAppState('onboarding');
+            }
+          }} 
+        />
+      </AnimatePresence>
+    );
   }
 
   if (appState === 'onboarding') {

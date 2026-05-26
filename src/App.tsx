@@ -592,12 +592,13 @@ const IntroVideoView = ({ onFinish }: { onFinish: () => void }) => {
 };
 
 // --- Cinematic Splash Screen Component ---
-const SplashView = ({ settings, onFinish }: { settings: SplashSettings; onFinish: (action?: 'signin' | 'signup' | 'intro_video') => void }) => {
+const SplashView = ({ settings, onFinish }: { settings: SplashSettings; onFinish: (action?: 'signin' | 'signup' | 'intro_video' | 'onboarding') => void }) => {
   const [showControls, setShowControls] = useState(false);
   const [scene, setScene] = useState<'scene1' | 'scene2' | 'scene3' | 'scene4' | 'scene5'>('scene1');
 
   useEffect(() => {
-    const hasPlayed = localStorage.getItem('BX_INTRO_VIDEO_PLAYED') === 'true';
+    const hasWatchedIntro = localStorage.getItem('boostx_intro_watched_v1') === 'true';
+    const hasCompletedOnboarding = localStorage.getItem('boostx_onboarding_completed_v1') === 'true';
 
     // Scene 1 -> Scene 2 (Box falls down fast): 800ms
     const t2 = setTimeout(() => {
@@ -627,8 +628,10 @@ const SplashView = ({ settings, onFinish }: { settings: SplashSettings; onFinish
 
     // Scene 4 -> Scene 5 (Transition to welcome screen static logo & buttons): 4400ms
     const t5 = setTimeout(() => {
-      if (!hasPlayed) {
+      if (!hasWatchedIntro) {
         onFinish('intro_video');
+      } else if (!hasCompletedOnboarding) {
+        onFinish('onboarding');
       } else {
         setScene('scene5');
         setShowControls(true);
@@ -898,6 +901,85 @@ const SplashView = ({ settings, onFinish }: { settings: SplashSettings; onFinish
 };
 
 
+// --- Premium Onboarding SVGs ---
+const OnboardingIcon1 = () => (
+  <svg width="220" height="220" viewBox="0 0 200 200" style={{ overflow: 'visible' }}>
+    <defs>
+      <linearGradient id="orb-grad-1" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#8C63C7" />
+        <stop offset="100%" stopColor="#55C27A" />
+      </linearGradient>
+      <filter id="neon-glow-icon" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="15" result="blur" />
+        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+      </filter>
+    </defs>
+    <circle cx="100" cy="100" r="60" fill="url(#orb-grad-1)" opacity="0.25" filter="url(#neon-glow-icon)" />
+    <g transform="translate(100, 100)">
+      <polygon points="-50,0 0,-25 50,0 0,25" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" />
+      <polygon points="-50,0 0,25 0,35 -50,10" fill="rgba(255,255,255,0.04)" />
+      <polygon points="0,25 50,0 50,10 0,35" fill="rgba(255,255,255,0.06)" />
+      <g transform="translate(-30, -25)">
+        <circle cx="0" cy="0" r="18" fill="#8C63C7" stroke="rgba(255,255,255,0.3)" strokeWidth="1" filter="drop-shadow(0 8px 16px rgba(140,99,199,0.3))" />
+        <path d="-6,-2 L6,-2 L0,8 Z" fill="white" />
+        <circle cx="0" cy="-6" r="3" fill="#55C27A" />
+      </g>
+      <g transform="translate(30, -25)">
+        <circle cx="0" cy="0" r="18" fill="#55C27A" stroke="rgba(255,255,255,0.3)" strokeWidth="1" filter="drop-shadow(0 8px 16px rgba(85,194,122,0.3))" />
+        <rect x="-3" y="-8" width="6" height="16" rx="2" fill="white" />
+        <rect x="-8" y="-3" width="16" height="6" rx="2" fill="white" />
+      </g>
+      <g transform="translate(0, 15)">
+        <circle cx="0" cy="0" r="20" fill="#6B4AA0" stroke="rgba(255,255,255,0.3)" strokeWidth="1.2" filter="drop-shadow(0 8px 16px rgba(0,0,0,0.3))" />
+        <path d="-7,-7 L7,7 M7,-7 L-7,7" stroke="white" strokeWidth="3" strokeLinecap="round" />
+        <circle cx="0" cy="0" r="4" fill="#55C27A" />
+      </g>
+    </g>
+  </svg>
+);
+
+const OnboardingIcon2 = () => (
+  <svg width="220" height="220" viewBox="0 0 200 200" style={{ overflow: 'visible' }}>
+    <circle cx="100" cy="100" r="60" fill="url(#orb-grad-1)" opacity="0.25" filter="url(#neon-glow-icon)" />
+    <g transform="translate(100, 100)">
+      <polygon points="-60,-15 10,-35 60,-5 -10,15" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" />
+      <polygon points="-60,-15 -10,15 -10,25 -60,-5" fill="rgba(255,255,255,0.03)" />
+      <polygon points="-10,15 60,-5 60,5 -10,25" fill="rgba(255,255,255,0.04)" />
+      <path d="-40,-10 Q0,-5 20,-12 T40,-7" fill="none" stroke="#55C27A" strokeWidth="4" strokeLinecap="round" opacity="0.8" />
+      <circle cx="-40" cy="-10" r="6" fill="white" />
+      <g transform="translate(20, -28)" filter="drop-shadow(0 10px 20px rgba(140,99,199,0.5))">
+        <path d="M0,-24 C-10,-24 -12,-12 0,0 C12,-12 10,-24 0,-24 Z" fill="#8C63C7" stroke="white" strokeWidth="1" />
+        <circle cx="0" cy="-15" r="4.5" fill="white" />
+      </g>
+    </g>
+  </svg>
+);
+
+const OnboardingIcon3 = () => (
+  <svg width="220" height="220" viewBox="0 0 200 200" style={{ overflow: 'visible' }}>
+    <defs>
+      <linearGradient id="purple-lid-left-onb" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#9c73df" />
+        <stop offset="100%" stopColor="#4c2c8f" />
+      </linearGradient>
+    </defs>
+    <circle cx="100" cy="100" r="60" fill="url(#orb-grad-1)" opacity="0.22" filter="url(#neon-glow-icon)" />
+    <g transform="translate(100, 100)">
+      <polygon points="-30,10 0,25 0,-15 -30,-30" fill="#5c3a9e" stroke="#4b2e85" strokeWidth="0.5" />
+      <polygon points="0,25 30,10 30,-30 0,-15" fill="#8c63c7" stroke="#5d35a8" strokeWidth="0.5" />
+      <polygon points="-32,-32 0,-17 32,-32 0,-47" fill="url(#purple-lid-left-onb)" stroke="#8d5fd1" strokeWidth="0.5" />
+      <polygon points="-10,20 0,25 0,-15 -10,-20" fill="#55C27A" />
+      <polygon points="0,25 10,20 10,-20 0,-15" fill="#55C27A" />
+      <g transform="translate(-40, -45)" opacity="0.9">
+        <path d="M0,-8 L2,-2 L8,-2 L3,2 L5,8 L0,4 L-5,8 L-3,2 L-8,-2 L-2,-2 Z" fill="#55C27A" transform="scale(0.8)" />
+      </g>
+      <g transform="translate(45, -20)" opacity="0.9">
+        <path d="M0,-8 L2,-2 L8,-2 L3,2 L5,8 L0,4 L-5,8 L-3,2 L-8,-2 L-2,-2 Z" fill="#8C63C7" transform="scale(0.7)" />
+      </g>
+    </g>
+  </svg>
+);
+
 // --- Premium Onboarding Screen Component ---
 const OnboardingView = ({ screens, onSkip }: { screens: OnboardingScreen[]; onSkip: () => void }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -923,7 +1005,7 @@ const OnboardingView = ({ screens, onSkip }: { screens: OnboardingScreen[]; onSk
         <span style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.4)', fontWeight: 800 }}>الخطوة {currentIndex + 1} من {screens.length}</span>
         <button 
           onClick={onSkip} 
-          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: '0.78rem', fontWeight: 900, padding: '6px 16px', borderRadius: 'var(--radius-pill)', cursor: 'pointer' }}
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: '0.78rem', fontWeight: 900, padding: '6px 16px', borderRadius: '16px', cursor: 'pointer' }}
         >
           تخطي
         </button>
@@ -942,7 +1024,9 @@ const OnboardingView = ({ screens, onSkip }: { screens: OnboardingScreen[]; onSk
           >
             <div style={{ position: 'relative', width: '220px', height: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
               <div style={{ position: 'absolute', inset: 0, background: 'var(--color-accent)', filter: 'blur(70px)', opacity: 0.24, borderRadius: '50%' }}></div>
-              <Sparkles size={110} color="var(--color-accent-light)" style={{ filter: 'drop-shadow(0 0 20px rgba(168,85,247,0.5))' }} />
+              {currentIndex === 0 && <OnboardingIcon1 />}
+              {currentIndex === 1 && <OnboardingIcon2 />}
+              {currentIndex === 2 && <OnboardingIcon3 />}
             </div>
             
             <h2 style={{ color: 'white', fontSize: '1.6rem', fontWeight: 950, textAlign: 'center', margin: '0 0 12px 0', lineHeight: 1.4, padding: '0 10px', direction: 'rtl' }}>
@@ -988,7 +1072,7 @@ const OnboardingView = ({ screens, onSkip }: { screens: OnboardingScreen[]; onSk
 
         <button 
           className="btn btn-primary" 
-          style={{ width: '100%', padding: '14px', borderRadius: 'var(--radius-pill)', fontWeight: 900, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, boxShadow: 'var(--glow-accent)' }} 
+          style={{ width: '100%', padding: '14px', borderRadius: '16px', fontWeight: 900, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, boxShadow: 'var(--glow-accent)' }} 
           onClick={handleNext}
         >
           <span>{currentIndex === screens.length - 1 ? 'ابدأ الاستخدام 🚀' : 'التالي'}</span>
@@ -1248,6 +1332,43 @@ const LoginView = ({ settings, onLoginSuccess, onBrowseAsGuest }: { settings: Lo
   );
 };
 
+// --- Local Default Onboarding Pages ---
+const LOCAL_DEFAULT_ONBOARDING_SCREENS: any[] = [
+  {
+    id: 'onb_1',
+    title_ar: 'كل خدماتك اليومية في مكان واحد',
+    subtitle_ar: 'مطاعم، صيدليات، سوبر ماركت، خدمات منزلية وفنيين… كل شيء يوصل لك بسهولة.',
+    image_url: 'services',
+    is_active: true,
+    order_index: 1,
+    title_en: 'All Daily Services in One Place',
+    subtitle_en: 'Restaurants, pharmacies, supermarket, home services and technicians… everything reaches you easily.',
+    created_at: ''
+  },
+  {
+    id: 'onb_2',
+    title_ar: 'اطلب وتابع طلبك لحظة بلحظة',
+    subtitle_ar: 'تابع المندوب، شوف حالة الطلب، واستلم بدون تعقيد.',
+    image_url: 'tracking',
+    is_active: true,
+    order_index: 2,
+    title_en: 'Order and Track Your Request Moment by Moment',
+    subtitle_en: 'Track the delivery agent, see order status, and receive without hassle.',
+    created_at: ''
+  },
+  {
+    id: 'onb_3',
+    title_ar: 'عروض ونقاط ومكافآت يومية',
+    subtitle_ar: 'استفد من الخصومات، العروض الممولة، ونقاط الولاء داخل التطبيق.',
+    image_url: 'rewards',
+    is_active: true,
+    order_index: 3,
+    title_en: 'Daily Offers, Points and Rewards',
+    subtitle_en: 'Benefit from discounts, sponsored offers, and loyalty points inside the app.',
+    created_at: ''
+  }
+];
+
 // --- Unified App Root Router ---
 export default function App() {
   const [appState, setAppState] = useState<'splash' | 'intro_video' | 'onboarding' | 'login' | 'main'>('splash');
@@ -1264,7 +1385,7 @@ export default function App() {
 
   // Dynamic Supabase Settings
   const [splashSettings, setSplashSettings] = useState<SplashSettings>(DEFAULT_SPLASH);
-  const [onboardingScreens, setOnboardingScreens] = useState<OnboardingScreen[]>(DEFAULT_ONBOARDING_SCREENS);
+  const [onboardingScreens, setOnboardingScreens] = useState<OnboardingScreen[]>(LOCAL_DEFAULT_ONBOARDING_SCREENS as OnboardingScreen[]);
   const [loginSettings, setLoginSettings] = useState<LoginSettings>(DEFAULT_LOGIN);
 
   const [selectedListingSection, setSelectedListingSection] = useState<'restaurants' | 'pharmacies' | 'offers' | 'products' | null>(null);
@@ -1342,14 +1463,33 @@ export default function App() {
   // Listen to live Supabase session changes
   useEffect(() => {
     const checkActiveSession = async () => {
+      // App Version & Storage Reset Check
+      const currentVersion = 'v1';
+      const savedVersion = localStorage.getItem('boostx_onboarding_version');
+      if (savedVersion !== currentVersion) {
+        localStorage.removeItem('boostx_intro_watched_v1');
+        localStorage.removeItem('boostx_onboarding_completed_v1');
+        localStorage.setItem('boostx_onboarding_version', currentVersion);
+      }
+
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session && session.user) {
           await resolveAndSetUser(session.user);
           setAppState('main');
+          return;
         }
       } catch (e) {
         console.error('Session check error:', e);
+      }
+
+      // If no valid session, check returning user status
+      const introWatched = localStorage.getItem('boostx_intro_watched_v1') === 'true';
+      const onboardingCompleted = localStorage.getItem('boostx_onboarding_completed_v1') === 'true';
+      if (introWatched && onboardingCompleted) {
+        setAppState('login');
+      } else {
+        setAppState('splash');
       }
     };
     checkActiveSession();
@@ -1544,7 +1684,7 @@ export default function App() {
       <AnimatePresence mode="wait">
         <IntroVideoView 
           onFinish={() => {
-            localStorage.setItem('BX_INTRO_VIDEO_PLAYED', 'true');
+            localStorage.setItem('boostx_intro_watched_v1', 'true');
             setAppState('onboarding');
           }} 
         />
@@ -1553,7 +1693,18 @@ export default function App() {
   }
 
   if (appState === 'onboarding') {
-    return <AnimatePresence mode="wait"><OnboardingView screens={onboardingScreens} onSkip={() => setAppState('login')} /></AnimatePresence>;
+    return (
+      <AnimatePresence mode="wait">
+        <OnboardingView 
+          screens={onboardingScreens} 
+          onSkip={() => {
+            localStorage.setItem('boostx_intro_watched_v1', 'true');
+            localStorage.setItem('boostx_onboarding_completed_v1', 'true');
+            setAppState('login');
+          }} 
+        />
+      </AnimatePresence>
+    );
   }
 
   if (appState === 'login') {

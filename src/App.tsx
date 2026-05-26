@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Home as HomeIcon, Search as SearchIcon, Gift, ShoppingCart, User, Bell, ClipboardList, 
@@ -517,76 +517,126 @@ const CinematicParticles = () => {
 
 // --- Premium Intro Video View Component ---
 const IntroVideoView = ({ onFinish }: { onFinish: () => void }) => {
-  const handleVideoEnd = () => {
-    onFinish();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isFading, setIsFading] = useState(false);
+  const [hasFinished, setHasFinished] = useState(false);
+
+  const handleTransition = () => {
+    if (hasFinished) return;
+    setHasFinished(true);
+    setIsFading(true);
+    setTimeout(() => {
+      onFinish();
+    }, 500); // 500ms smooth fade out transition
+  };
+
+  useEffect(() => {
+    // 4-second safety fallback timer to guarantee transition if video completely fails
+    const safetyTimeout = setTimeout(() => {
+      console.log('[IntroVideo] Safety 4s timeout reached, triggering fallback transition');
+      handleTransition();
+    }, 4000);
+
+    return () => clearTimeout(safetyTimeout);
+  }, []);
+
+  const handlePlay = () => {
+    console.log('[IntroVideo] play started');
+  };
+
+  const handleCanPlay = () => {
+    console.log('[IntroVideo] canplay');
+    if (videoRef.current) {
+      videoRef.current.play().catch(err => {
+        console.warn('[IntroVideo] play() failed after canplay (browser restrictions):', err);
+      });
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    console.log('[IntroVideo] loadedmetadata');
+  };
+
+  const handleEnded = () => {
+    console.log('[IntroVideo] ended');
+    handleTransition();
+  };
+
+  const handleError = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
+    const target = e.currentTarget;
+    const error = target.error;
+    console.error('[IntroVideo] error occurred:', error ? `Code ${error.code}: ${error.message}` : 'Unknown error');
+    
+    // Fallback after 3 seconds on error
+    setTimeout(() => {
+      console.log('[IntroVideo] Transitioning after error fallback timeout (3s)');
+      handleTransition();
+    }, 3000);
+  };
+
+  // Safe programmatic play on mount
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.play().catch(err => {
+        console.warn('[IntroVideo] Mount play() failed (browser restrictions):', err);
+      });
+    }
+  }, []);
+
+  const handleTapToSkip = () => {
+    console.log('[IntroVideo] Tap to skip triggered');
+    handleTransition();
   };
 
   return (
-    <div style={{ 
-      position: 'relative', 
-      height: '100vh', 
-      width: '100%', 
-      maxWidth: '480px', 
-      margin: '0 auto', 
-      background: '#090412', 
-      display: 'flex', 
-      flexDirection: 'column', 
-      alignItems: 'center', 
-      justifyContent: 'center', 
-      overflow: 'hidden', 
-      fontFamily: 'Cairo, sans-serif', 
-      boxSizing: 'border-box', 
-      boxShadow: '0 0 32px rgba(22, 5, 45, 0.12)' 
-    }}>
+    <div 
+      onClick={handleTapToSkip}
+      style={{ 
+        position: 'fixed', 
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        height: '100vh', 
+        width: '100%', 
+        maxWidth: '480px',
+        margin: '0 auto',
+        background: '#1E1230', // dark purple fallback background
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        overflow: 'hidden', 
+        zIndex: 9999,
+        cursor: 'pointer',
+        opacity: isFading ? 0 : 1,
+        transition: 'opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+        // safe-area support
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        boxSizing: 'border-box',
+        boxShadow: '0 0 32px rgba(22, 5, 45, 0.12)'
+      }}
+    >
       <video 
+        ref={videoRef}
         src={introVideo} 
         autoPlay 
+        muted 
         playsInline 
-        onEnded={handleVideoEnd}
+        preload="auto"
+        controls={false}
+        onLoadedMetadata={handleLoadedMetadata}
+        onCanPlay={handleCanPlay}
+        onPlay={handlePlay}
+        onEnded={handleEnded}
+        onError={handleError}
         style={{ 
           width: '100%', 
           height: '100%', 
           objectFit: 'cover',
-          zIndex: 1
+          pointerEvents: 'none', // ensures clicks pass through to the container div
         }} 
       />
-
-      <button 
-        onClick={onFinish}
-        style={{ 
-          position: 'absolute', 
-          top: 'calc(16px + env(safe-area-inset-top, 0px))', 
-          right: '16px', 
-          zIndex: 10, 
-          background: 'rgba(255, 255, 255, 0.08)', 
-          border: '1px solid rgba(255, 255, 255, 0.15)', 
-          color: 'white', 
-          fontSize: '0.8rem', 
-          fontWeight: 900, 
-          padding: '8px 20px', 
-          borderRadius: '16px', 
-          cursor: 'pointer',
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
-          boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
-          transition: 'all 0.2s ease',
-          outline: 'none',
-          fontFamily: 'Cairo, sans-serif'
-        }}
-      >
-        تخطي ❯
-      </button>
-
-      <div style={{
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: '120px',
-        background: 'linear-gradient(to top, rgba(9, 4, 18, 0.6) 0%, transparent 100%)',
-        zIndex: 2,
-        pointerEvents: 'none'
-      }} />
     </div>
   );
 };

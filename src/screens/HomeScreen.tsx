@@ -208,85 +208,236 @@ export const HomeScreen = ({
   ];
 
   // Dynamic connected database states
-  const [homeSections, setHomeSections] = useState<any[]>([]);
+  const [homeSections, setHomeSections] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem('BX_CACHED_HOME_SECTIONS');
+      return cached ? JSON.parse(cached) : [
+        { section_type: 'stories', is_visible: true },
+        { section_type: 'banners', is_visible: true },
+        { section_type: 'offers', is_visible: true },
+        { section_type: 'categories', is_visible: true },
+        { section_type: 'sponsored_campaigns', is_visible: true },
+        { section_type: 'partners', is_visible: true }
+      ];
+    } catch {
+      return [
+        { section_type: 'stories', is_visible: true },
+        { section_type: 'banners', is_visible: true },
+        { section_type: 'offers', is_visible: true },
+        { section_type: 'categories', is_visible: true },
+        { section_type: 'sponsored_campaigns', is_visible: true },
+        { section_type: 'partners', is_visible: true }
+      ];
+    }
+  });
   const [error, setError] = useState<string | null>(null);
-  const [stories, setStories] = useState<any[]>([]);
-  const [ads, setAds] = useState<any[]>([]);
-  const [partnersNearby, setPartnersNearby] = useState<any[]>([]);
-  const [categoriesList, setCategoriesList] = useState<any[]>([]);
-  const [flashOffers, setFlashOffers] = useState<any[]>([]);
-  const [sponsoredProducts, setSponsoredProducts] = useState<any[]>([]);
-  const [activeOrder, setActiveOrder] = useState<any | null>(null);
+  const [stories, setStories] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem('BX_CACHED_STORIES');
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
+  const [ads, setAds] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem('BX_CACHED_ADS');
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
+  const [partnersNearby, setPartnersNearby] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem('BX_CACHED_PARTNERS');
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
+  const [categoriesList, setCategoriesList] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem('BX_CACHED_CATEGORIES');
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
+  const [flashOffers, setFlashOffers] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem('BX_CACHED_FLASH_OFFERS');
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
+  const [sponsoredProducts, setSponsoredProducts] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem('BX_CACHED_SPONSORED_PRODUCTS');
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
+  const [activeOrder, setActiveOrder] = useState<any | null>(() => {
+    try {
+      const cached = localStorage.getItem('BX_CACHED_ACTIVE_ORDER');
+      return cached ? JSON.parse(cached) : null;
+    } catch { return null; }
+  });
   const [ordersEmpty, setOrdersEmpty] = useState(false);
-  const [promoText, setPromoText] = useState<{ title: string; subtitle: string } | null>(null);
+  const [promoText, setPromoText] = useState<{ title: string; subtitle: string } | null>(() => {
+    try {
+      const cached = localStorage.getItem('BX_CACHED_PROMO_TEXT');
+      return cached ? JSON.parse(cached) : null;
+    } catch { return null; }
+  });
   const [loading, setLoading] = useState(true);
 
   const fetchHomeData = async () => {
     try {
       if (!supabase) return;
 
-      // 0. Fetch Home Sections (ordering & visibility)
-      let sectionsData = null;
-      try {
-        const { data, error: sectionsErr } = await supabase
-          .from('home_sections')
-          .select('*')
-          .order('display_order', { ascending: true });
-        if (!sectionsErr && data) {
-          sectionsData = data;
-        } else if (sectionsErr) {
-          console.warn('home_sections table query warning:', sectionsErr.message);
+      const sectionsPromise = (async () => {
+        try {
+          const { data, error } = await supabase
+            .from('home_sections')
+            .select('*')
+            .order('display_order', { ascending: true });
+          if (!error && data && data.length > 0) return data;
+        } catch (e) {
+          console.warn('sectionsPromise failed:', e);
         }
-      } catch (err: any) {
-        console.warn('Failed to fetch home_sections:', err);
-      }
-
-      if (sectionsData && sectionsData.length > 0) {
-        setHomeSections(sectionsData);
-      } else {
-        setHomeSections([
+        return [
           { section_type: 'stories', is_visible: true },
           { section_type: 'banners', is_visible: true },
           { section_type: 'offers', is_visible: true },
           { section_type: 'categories', is_visible: true },
           { section_type: 'sponsored_campaigns', is_visible: true },
           { section_type: 'partners', is_visible: true }
-        ]);
-      }
+        ];
+      })();
 
-      // 1. Fetch Banners from home_banners and ad_campaigns
-      let homeBannersData = null;
-      try {
-        const { data, error: homeBannersErr } = await supabase
-          .from('home_banners')
-          .select('*')
-          .eq('is_active', true)
-          .order('display_order', { ascending: true });
-        if (!homeBannersErr && data) {
-          homeBannersData = data;
-        } else if (homeBannersErr) {
-          console.warn('home_banners table query warning:', homeBannersErr.message);
+      const bannersPromise = (async () => {
+        try {
+          const { data, error } = await supabase
+            .from('home_banners')
+            .select('*')
+            .eq('is_active', true)
+            .order('display_order', { ascending: true });
+          if (!error && data) return data;
+        } catch (e) {
+          console.warn('bannersPromise failed:', e);
         }
-      } catch (err: any) {
-        console.warn('Failed to fetch home_banners:', err);
-      }
+        return [];
+      })();
 
-      let campaignsData = null;
-      try {
-        const { data, error: campaignsErr } = await supabase
-          .from('ad_campaigns')
-          .select('*')
-          .eq('status', 'approved')
-          .eq('is_active', true);
-        if (!campaignsErr && data) {
-          campaignsData = data;
-        } else if (campaignsErr) {
-          console.warn('ad_campaigns table query warning:', campaignsErr.message);
+      const campaignsPromise = (async () => {
+        try {
+          const { data, error } = await supabase
+            .from('ad_campaigns')
+            .select('*')
+            .eq('status', 'approved')
+            .eq('is_active', true);
+          if (!error && data) return data;
+        } catch (e) {
+          console.warn('campaignsPromise failed:', e);
         }
-      } catch (err: any) {
-        console.warn('Failed to fetch ad_campaigns:', err);
-      }
+        return [];
+      })();
 
+      const categoriesPromise = (async () => {
+        try {
+          const { data, error } = await supabase
+            .from('categories')
+            .select('*')
+            .eq('is_active', true)
+            .order('display_order', { ascending: true });
+          if (!error && data) return data;
+        } catch (e) {
+          console.warn('categoriesPromise failed:', e);
+        }
+        return [];
+      })();
+
+      const partnersPromise = (async () => {
+        try {
+          const { data, error } = await supabase
+            .from('partners')
+            .select('*');
+          if (!error && data) return data;
+        } catch (e) {
+          console.warn('partnersPromise failed:', e);
+        }
+        return [];
+      })();
+
+      const offersPromise = (async () => {
+        try {
+          const { data, error } = await supabase
+            .from('offers')
+            .select('*')
+            .eq('is_active', true)
+            .order('created_at', { ascending: false });
+          if (!error && data) return data;
+        } catch (e) {
+          console.warn('offersPromise failed:', e);
+        }
+        return [];
+      })();
+
+      const sponsoredPromise = (async () => {
+        try {
+          const { data, error } = await supabase
+            .from('sponsored_products')
+            .select('*')
+            .eq('is_active', true);
+          if (!error && data) return data;
+        } catch (e) {
+          console.warn('sponsoredPromise failed:', e);
+        }
+        return [];
+      })();
+
+      const ordersPromise = (async () => {
+        const currentCustId = currentUser?.id;
+        if (!currentCustId) return [];
+        try {
+          const { data, error } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('customer_id', currentCustId)
+            .order('created_at', { ascending: false });
+          if (!error && data) return data;
+        } catch (e) {
+          console.warn('ordersPromise failed:', e);
+        }
+        return [];
+      })();
+
+      const TIMEOUT_MS = 4000;
+      let timeoutId: any;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error('TIMEOUT')), TIMEOUT_MS);
+      });
+
+      const fetchAllPromise = Promise.all([
+        sectionsPromise,
+        bannersPromise,
+        campaignsPromise,
+        categoriesPromise,
+        partnersPromise,
+        offersPromise,
+        sponsoredPromise,
+        ordersPromise
+      ]);
+
+      const [
+        sectionsData,
+        homeBannersData,
+        campaignsData,
+        categoriesData,
+        partnersData,
+        offersData,
+        sponsoredData,
+        ordersData
+      ] = await Promise.race([fetchAllPromise, timeoutPromise]);
+
+      clearTimeout(timeoutId);
+
+      // Save & set home sections
+      setHomeSections(sectionsData);
+      localStorage.setItem('BX_CACHED_HOME_SECTIONS', JSON.stringify(sectionsData));
+
+      // Banners
       const combinedBanners = [
         ...(homeBannersData || []).map((b: any) => ({
           id: b.id,
@@ -305,9 +456,11 @@ export const HomeScreen = ({
             color: c.color || 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)'
           }))
       ];
-      setAds(combinedBanners.length > 0 ? combinedBanners : fallbackAds);
+      const finalBanners = combinedBanners.length > 0 ? combinedBanners : fallbackAds;
+      setAds(finalBanners);
+      localStorage.setItem('BX_CACHED_ADS', JSON.stringify(finalBanners));
 
-      // 2. Fetch Stories from approved ad_campaigns
+      // Stories
       const fetchedStories = (campaignsData || [])
         .filter((c: any) => c.placement === 'stories')
         .map((c: any) => ({
@@ -318,54 +471,35 @@ export const HomeScreen = ({
           label: c.tagline || 'عروض مميزة 🔥',
           viewed: false
         }));
-      setStories(fetchedStories.length > 0 ? fetchedStories : fallbackStories);
+      const finalStories = fetchedStories.length > 0 ? fetchedStories : fallbackStories;
+      setStories(finalStories);
+      localStorage.setItem('BX_CACHED_STORIES', JSON.stringify(finalStories));
 
-      // 3. Fetch Promo alert strip
+      // Promo
       const promoCampaign = (campaignsData || []).find((c: any) => c.placement === 'promo_strip') || (campaignsData || []).find((c: any) => c.placement === 'banners');
+      let finalPromo = null;
       if (promoCampaign) {
-        setPromoText({
+        finalPromo = {
           title: promoCampaign.title || promoCampaign.tagline || 'عروض مواسم السعودية الحصرية حية 🎟️',
           subtitle: promoCampaign.tagline || 'خصومات حصرية وطلب فعاليات فوري'
-        });
+        };
+      }
+      setPromoText(finalPromo);
+      if (finalPromo) {
+        localStorage.setItem('BX_CACHED_PROMO_TEXT', JSON.stringify(finalPromo));
       } else {
-        setPromoText(null);
+        localStorage.removeItem('BX_CACHED_PROMO_TEXT');
       }
 
-      // 4. Fetch Categories
-      let categoriesData = null;
-      try {
-        const { data, error: categoriesErr } = await supabase
-          .from('categories')
-          .select('*')
-          .eq('is_active', true)
-          .order('display_order', { ascending: true });
-        if (!categoriesErr && data) {
-          categoriesData = data;
-        } else if (categoriesErr) {
-          console.warn('categories table query warning:', categoriesErr.message);
-        }
-      } catch (err: any) {
-        console.warn('Failed to fetch categories:', err);
-      }
-      setCategoriesList(categoriesData && categoriesData.length > 0 ? categoriesData : fallbackCategories);
+      // Categories
+      const finalCategories = categoriesData && categoriesData.length > 0 ? categoriesData : fallbackCategories;
+      setCategoriesList(finalCategories);
+      localStorage.setItem('BX_CACHED_CATEGORIES', JSON.stringify(finalCategories));
 
-      // 5. Fetch Partners (featured stores, is_active check)
-      let partnersData = null;
-      try {
-        const { data, error: partnersErr } = await supabase
-          .from('partners')
-          .select('*');
-        if (!partnersErr && data) {
-          partnersData = data;
-        } else if (partnersErr) {
-          console.warn('partners table query warning:', partnersErr.message);
-        }
-      } catch (err: any) {
-        console.warn('Failed to fetch partners:', err);
-      }
-
+      // Partners
+      let finalPartners = fallbackPartners;
       if (partnersData && partnersData.length > 0) {
-        const mappedPartners = partnersData.map((p: any) => ({
+        finalPartners = partnersData.map((p: any) => ({
           id: p.id,
           name: p.name,
           category: p.category || (p.biz_type === 'restaurant' ? 'مطاعم' : p.biz_type === 'pharmacy' ? 'صيدليات' : p.biz_type === 'grocery' ? 'تموينات' : 'مطابع'),
@@ -377,28 +511,11 @@ export const HomeScreen = ({
           sponsored: !!p.sponsored,
           is_active: p.is_active !== false
         }));
-        setPartnersNearby(mappedPartners);
-      } else {
-        setPartnersNearby(fallbackPartners);
       }
+      setPartnersNearby(finalPartners);
+      localStorage.setItem('BX_CACHED_PARTNERS', JSON.stringify(finalPartners));
 
-      // 6. Fetch Offers from public.offers
-      let offersData = null;
-      try {
-        const { data, error: offersErr } = await supabase
-          .from('offers')
-          .select('*')
-          .eq('is_active', true)
-          .order('created_at', { ascending: false });
-        if (!offersErr && data) {
-          offersData = data;
-        } else if (offersErr) {
-          console.warn('offers table query warning:', offersErr.message);
-        }
-      } catch (err: any) {
-        console.warn('Failed to fetch offers:', err);
-      }
-
+      // Offers
       const mappedOffers = (offersData || []).map((o: any) => ({
         id: o.id,
         title: o.title,
@@ -414,22 +531,6 @@ export const HomeScreen = ({
         delivery_time: '١٥-٢٠ دقيقة',
         images: [o.image_url || 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&q=80']
       }));
-
-      // 7. Fetch Sponsored Products
-      let sponsoredData = null;
-      try {
-        const { data, error: sponsoredErr } = await supabase
-          .from('sponsored_products')
-          .select('*')
-          .eq('is_active', true);
-        if (!sponsoredErr && data) {
-          sponsoredData = data;
-        } else if (sponsoredErr) {
-          console.warn('sponsored_products table query warning:', sponsoredErr.message);
-        }
-      } catch (err: any) {
-        console.warn('Failed to fetch sponsored_products:', err);
-      }
 
       const mappedSponsored = (sponsoredData || []).map((o: any) => ({
         id: o.id,
@@ -448,31 +549,13 @@ export const HomeScreen = ({
       }));
 
       const combinedOffers = [...mappedOffers, ...mappedSponsored];
-      setFlashOffers(combinedOffers.filter((o: any) => o.discount_percent >= 50));
+      const finalFlashOffers = combinedOffers.filter((o: any) => o.discount_percent >= 50);
+      setFlashOffers(finalFlashOffers);
+      localStorage.setItem('BX_CACHED_FLASH_OFFERS', JSON.stringify(finalFlashOffers));
       setSponsoredProducts(mappedSponsored);
+      localStorage.setItem('BX_CACHED_SPONSORED_PRODUCTS', JSON.stringify(mappedSponsored));
 
-      // 8. Fetch Active Order
-      const currentCustId = currentUser?.id;
-      if (!currentCustId) {
-        setOrdersEmpty(true);
-        return;
-      }
-      let ordersData = null;
-      try {
-        const { data, error: ordersErr } = await supabase
-          .from('orders')
-          .select('*')
-          .eq('customer_id', currentCustId)
-          .order('created_at', { ascending: false });
-        if (!ordersErr && data) {
-          ordersData = data;
-        } else if (ordersErr) {
-          console.warn('orders table query warning:', ordersErr.message);
-        }
-      } catch (err: any) {
-        console.warn('Failed to fetch orders:', err);
-      }
-
+      // Active Order
       if (ordersData && ordersData.length > 0) {
         setOrdersEmpty(false);
         const activeItem = ordersData.find((o: any) => 
@@ -482,22 +565,36 @@ export const HomeScreen = ({
           o.status !== 'ملغي'
         );
         setActiveOrder(activeItem || null);
+        if (activeItem) {
+          localStorage.setItem('BX_CACHED_ACTIVE_ORDER', JSON.stringify(activeItem));
+        } else {
+          localStorage.removeItem('BX_CACHED_ACTIVE_ORDER');
+        }
       } else {
         setOrdersEmpty(true);
         setActiveOrder(null);
+        localStorage.removeItem('BX_CACHED_ACTIVE_ORDER');
       }
 
+      setError(null);
     } catch (err: any) {
-      console.error('Error fetching dynamic home page connection:', err);
-      // Fail-safe: do not crash, load fallback sections so user has beautiful UI
-      setHomeSections([
-        { section_type: 'stories', is_visible: true },
-        { section_type: 'banners', is_visible: true },
-        { section_type: 'offers', is_visible: true },
-        { section_type: 'categories', is_visible: true },
-        { section_type: 'sponsored_campaigns', is_visible: true },
-        { section_type: 'partners', is_visible: true }
-      ]);
+      console.warn('Error fetching dynamic home page connection:', err);
+      // Fallback if cache is completely empty
+      if (homeSections.length === 0) {
+        setHomeSections([
+          { section_type: 'stories', is_visible: true },
+          { section_type: 'banners', is_visible: true },
+          { section_type: 'offers', is_visible: true },
+          { section_type: 'categories', is_visible: true },
+          { section_type: 'sponsored_campaigns', is_visible: true },
+          { section_type: 'partners', is_visible: true }
+        ]);
+        setStories(fallbackStories);
+        setAds(fallbackAds);
+        setCategoriesList(fallbackCategories);
+        setPartnersNearby(fallbackPartners);
+        setFlashOffers(fallbackOffers);
+      }
     } finally {
       setLoading(false);
     }
@@ -506,64 +603,63 @@ export const HomeScreen = ({
   useEffect(() => {
     fetchHomeData();
 
-    // Set up Realtime subscriptions for all components
-    const homeSectionsChannel = supabase.channel('realtime:home_sections')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'home_sections' }, () => {
-        fetchHomeData();
-      })
-      .subscribe();
+    let channels: any[] = [];
+    const timer = setTimeout(() => {
+      if (!supabase) return;
+      try {
+        const homeSectionsChannel = supabase.channel('realtime:home_sections')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'home_sections' }, () => { fetchHomeData(); })
+          .subscribe();
+        channels.push(homeSectionsChannel);
 
-    const homeBannersChannel = supabase.channel('realtime:home_banners')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'home_banners' }, () => {
-        fetchHomeData();
-      })
-      .subscribe();
+        const homeBannersChannel = supabase.channel('realtime:home_banners')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'home_banners' }, () => { fetchHomeData(); })
+          .subscribe();
+        channels.push(homeBannersChannel);
 
-    const campaignsChannel = supabase.channel('realtime:home_campaigns')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ad_campaigns' }, () => {
-        fetchHomeData();
-      })
-      .subscribe();
+        const campaignsChannel = supabase.channel('realtime:home_campaigns')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'ad_campaigns' }, () => { fetchHomeData(); })
+          .subscribe();
+        channels.push(campaignsChannel);
 
-    const categoriesChannel = supabase.channel('realtime:home_categories')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => {
-        fetchHomeData();
-      })
-      .subscribe();
+        const categoriesChannel = supabase.channel('realtime:home_categories')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => { fetchHomeData(); })
+          .subscribe();
+        channels.push(categoriesChannel);
 
-    const partnersChannel = supabase.channel('realtime:home_partners')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'partners' }, () => {
-        fetchHomeData();
-      })
-      .subscribe();
+        const partnersChannel = supabase.channel('realtime:home_partners')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'partners' }, () => { fetchHomeData(); })
+          .subscribe();
+        channels.push(partnersChannel);
 
-    const sponsoredChannel = supabase.channel('realtime:home_sponsored')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'sponsored_products' }, () => {
-        fetchHomeData();
-      })
-      .subscribe();
+        const sponsoredChannel = supabase.channel('realtime:home_sponsored')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'sponsored_products' }, () => { fetchHomeData(); })
+          .subscribe();
+        channels.push(sponsoredChannel);
 
-    const offersChannel = supabase.channel('realtime:home_offers')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'offers' }, () => {
-        fetchHomeData();
-      })
-      .subscribe();
+        const offersChannel = supabase.channel('realtime:home_offers')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'offers' }, () => { fetchHomeData(); })
+          .subscribe();
+        channels.push(offersChannel);
 
-    const ordersChannel = supabase.channel('realtime:home_orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-        fetchHomeData();
-      })
-      .subscribe();
+        const ordersChannel = supabase.channel('realtime:home_orders')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => { fetchHomeData(); })
+          .subscribe();
+        channels.push(ordersChannel);
+      } catch (err) {
+        console.warn('Failed to register realtime home subscriptions:', err);
+      }
+    }, 1500);
 
     return () => {
-      homeSectionsChannel.unsubscribe();
-      homeBannersChannel.unsubscribe();
-      campaignsChannel.unsubscribe();
-      categoriesChannel.unsubscribe();
-      partnersChannel.unsubscribe();
-      sponsoredChannel.unsubscribe();
-      offersChannel.unsubscribe();
-      ordersChannel.unsubscribe();
+      clearTimeout(timer);
+      channels.forEach(ch => {
+        try {
+          ch.unsubscribe();
+        } catch (e) {
+          console.warn('Error unsubscribing channel:', e);
+        }
+      });
     };
   }, [currentUser]);
 
@@ -591,23 +687,38 @@ export const HomeScreen = ({
 
     fetchUnreadCount();
 
-    const notifChannel = supabase.channel(`realtime:home_notifications:${currentUser.id}`)
-      .on(
-        'postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'notifications', 
-          filter: `user_id=eq.${currentUser.id}` 
-        }, 
-        () => {
-          fetchUnreadCount();
-        }
-      )
-      .subscribe();
+    let notifChannel: any = null;
+    const timer = setTimeout(() => {
+      if (!supabase) return;
+      try {
+        notifChannel = supabase.channel(`realtime:home_notifications:${currentUser.id}`)
+          .on(
+            'postgres_changes', 
+            { 
+              event: '*', 
+              schema: 'public', 
+              table: 'notifications', 
+              filter: `user_id=eq.${currentUser.id}` 
+            }, 
+            () => {
+              fetchUnreadCount();
+            }
+          )
+          .subscribe();
+      } catch (e) {
+        console.warn('Failed to subscribe notifications channel:', e);
+      }
+    }, 1500);
 
     return () => {
-      notifChannel.unsubscribe();
+      clearTimeout(timer);
+      if (notifChannel) {
+        try {
+          notifChannel.unsubscribe();
+        } catch (e) {
+          console.warn('Error unsubscribing notifications channel:', e);
+        }
+      }
     };
   }, [currentUser]);
 
@@ -645,7 +756,21 @@ export const HomeScreen = ({
 
   // 1. Stories Section
   const renderStoriesSection = () => {
-    if (stories.length === 0) return null;
+    if (stories.length === 0) {
+      if (!loading) return null;
+      return (
+        <div style={{ width: '100%', overflow: 'hidden', marginBottom: '18px' }} key="stories-section-skeleton">
+          <div style={{ display: 'flex', gap: 12, overflowX: 'auto', padding: '2px 20px', direction: 'rtl' }} className="no-scrollbar">
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, width: 60 }}>
+                <div className="shimmer-bg-dark" style={{ width: 56, height: 56, borderRadius: '18px' }} />
+                <div className="shimmer-bg-dark" style={{ height: 8, width: 40, borderRadius: 4, marginTop: 6 }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
     return (
       <div style={{ width: '100%', overflow: 'hidden', marginBottom: '18px' }} key="stories-section">
         <div 
@@ -721,7 +846,14 @@ export const HomeScreen = ({
 
   // 3. Banners Section
   const renderBannersSection = () => {
-    if (ads.length === 0) return null;
+    if (ads.length === 0) {
+      if (!loading) return null;
+      return (
+        <section style={{ position: 'relative', width: '100%' }} key="banners-section-skeleton">
+          <div className="shimmer-bg-dark" style={{ width: '100%', height: 154, borderRadius: 20, border: '1px solid rgba(255,255,255,0.08)' }}></div>
+        </section>
+      );
+    }
     const safeIndex = activeHeroIndex < ads.length ? activeHeroIndex : 0;
     const banner = ads[safeIndex];
     if (!banner) return null;
@@ -762,7 +894,20 @@ export const HomeScreen = ({
         
         <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 8, paddingLeft: 4, paddingRight: 4 }} className="no-scrollbar">
           {flashOffers.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '24px 0', color: '#6b7280', width: '100%', fontSize: '0.78rem', background: '#ffffff', borderRadius: 16, border: '1px solid #eef2f6' }}>لا توجد عروض نشطة حالياً 🏷️</div>
+            loading ? (
+              [1, 2, 3].map(i => (
+                <div key={i} style={{ flexShrink: 0, width: 250, height: 196, background: '#ffffff', border: '1px solid #eef2f6', borderRadius: 20, padding: 12, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div className="shimmer-bg" style={{ width: '100%', height: 110, borderRadius: 12 }} />
+                  <div className="shimmer-bg" style={{ width: '70%', height: 12, borderRadius: 6 }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
+                    <div className="shimmer-bg" style={{ width: '40%', height: 16, borderRadius: 8 }} />
+                    <div className="shimmer-bg" style={{ width: '30%', height: 22, borderRadius: 8 }} />
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div style={{ textAlign: 'center', padding: '24px 0', color: '#6b7280', width: '100%', fontSize: '0.78rem', background: '#ffffff', borderRadius: 16, border: '1px solid #eef2f6' }}>لا توجد عروض نشطة حالياً 🏷️</div>
+            )
           ) : (
             flashOffers.map(offer => (
               <FlashOfferCard 
@@ -787,7 +932,16 @@ export const HomeScreen = ({
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
           {categoriesList.length === 0 ? (
-            <div style={{ gridColumn: 'span 4', textAlign: 'center', padding: '20px 0', color: '#6b7280', fontSize: '0.78rem' }}>لا توجد أقسام متوفرة حالياً 🛍️</div>
+            loading ? (
+              [1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  <div className="shimmer-bg" style={{ width: 48, height: 48, borderRadius: 16 }} />
+                  <div className="shimmer-bg" style={{ width: 34, height: 8, borderRadius: 4 }} />
+                </div>
+              ))
+            ) : (
+              <div style={{ gridColumn: 'span 4', textAlign: 'center', padding: '20px 0', color: '#6b7280', fontSize: '0.78rem' }}>لا توجد أقسام متوفرة حالياً 🛍️</div>
+            )
           ) : (
             categoriesList.map(cat => {
               const renderCategoryIcon = (iconName: string) => {
@@ -847,7 +1001,33 @@ export const HomeScreen = ({
 
   // 6. Sponsored Campaigns Section
   const renderSponsoredCampaignsSection = () => {
-    if (sponsoredProducts.length === 0) return null;
+    if (sponsoredProducts.length === 0) {
+      if (!loading) return null;
+      return (
+        <section className="cinematic-sponsored-section" key="sponsored-campaigns-section-skeleton" style={{ width: '100%' }}>
+          <div className="cinematic-grid-bg" />
+          <div className="cinematic-glow-light" />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, direction: 'rtl', position: 'relative', zIndex: 2 }}>
+            <span style={{ fontSize: '0.94rem', fontWeight: 950, color: '#ffffff', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Sparkles size={16} color="#c084fc" fill="#c084fc" />
+              <span>منتجات بخصومات عالية</span>
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 6, position: 'relative', zIndex: 2 }} className="no-scrollbar">
+            {[1, 2].map(i => (
+              <div key={i} style={{ flexShrink: 0, width: 172, height: 210, background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 20, padding: 10, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div className="shimmer-bg-dark" style={{ width: '100%', height: 116, borderRadius: 12 }} />
+                <div className="shimmer-bg-dark" style={{ width: '80%', height: 10, borderRadius: 5 }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
+                  <div className="shimmer-bg-dark" style={{ width: '40%', height: 14, borderRadius: 7 }} />
+                  <div className="shimmer-bg-dark" style={{ width: '30%', height: 18, borderRadius: 5 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      );
+    }
     return (
       <section className="cinematic-sponsored-section" key="sponsored-campaigns-section" style={{ width: '100%' }}>
         {/* Background elements */}
@@ -953,7 +1133,20 @@ export const HomeScreen = ({
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {partnersNearby.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '30px 0', color: '#6b7280', fontSize: '0.78rem', background: '#ffffff', borderRadius: 20, border: '1px solid #eef2f6' }}>لا توجد متاجر نشطة حالياً بقربك 📍</div>
+            loading ? (
+              [1, 2].map(i => (
+                <div key={i} style={{ background: '#ffffff', border: '1px solid #eef2f6', borderRadius: 20, padding: 12, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div className="shimmer-bg" style={{ width: '100%', height: 110, borderRadius: 14 }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="shimmer-bg" style={{ width: '50%', height: 14, borderRadius: 7 }} />
+                    <div className="shimmer-bg" style={{ width: '20%', height: 12, borderRadius: 6 }} />
+                  </div>
+                  <div className="shimmer-bg" style={{ width: '30%', height: 10, borderRadius: 5 }} />
+                </div>
+              ))
+            ) : (
+              <div style={{ textAlign: 'center', padding: '30px 0', color: '#6b7280', fontSize: '0.78rem', background: '#ffffff', borderRadius: 20, border: '1px solid #eef2f6' }}>لا توجد متاجر نشطة حالياً بقربك 📍</div>
+            )
           ) : (
             partnersNearby
               .filter(p => !selectedCategory || p.category === selectedCategory)
@@ -1017,19 +1210,6 @@ export const HomeScreen = ({
     );
   }
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'linear-gradient(135deg, #15052b 0%, #2e0854 100%)', color: 'white', fontFamily: 'Cairo, sans-serif' }}>
-        <motion.div 
-          animate={{ rotate: 360 }} 
-          transition={{ repeat: Infinity, duration: 1.2, ease: "linear" }}
-          style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#c084fc', marginBottom: 16 }}
-        />
-        <span style={{ fontSize: '0.9rem', fontWeight: 800 }}>جاري مزامنة واجهة بوسط إكس...</span>
-      </div>
-    );
-  }
-
   return (
     <motion.div 
       initial={{ opacity: 0, y: 15 }} 
@@ -1038,6 +1218,20 @@ export const HomeScreen = ({
     >
       {/* Premium Injected Styles for Floating vector elements */}
       <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        .shimmer-bg {
+          background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite linear !important;
+        }
+        .shimmer-bg-dark {
+          background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite linear !important;
+        }
         @keyframes float-icon-slow {
           0% { transform: translateY(0px) rotate(0deg); opacity: 0.05; }
           50% { transform: translateY(-20px) rotate(15deg); opacity: 0.12; }
@@ -1190,8 +1384,16 @@ export const HomeScreen = ({
             <div style={{ width: 40, height: 40, borderRadius: '12px', background: 'linear-gradient(135deg, #c084fc 0%, #7c3aed 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 18px rgba(124, 58, 237, 0.35)', border: '1px solid rgba(255,255,255,0.12)' }}>
               <span style={{ fontSize: '1.25rem', fontWeight: 950, color: 'white' }}>B</span>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <span style={{ fontSize: '0.62rem', color: 'rgba(255, 255, 255, 0.45)', display: 'block', fontWeight: 700 }}>التوصيل إلى 📍</span>
+            <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: '0.62rem', color: 'rgba(255, 255, 255, 0.45)', fontWeight: 700 }}>التوصيل إلى 📍</span>
+                {loading && (
+                  <span style={{ fontSize: '0.58rem', color: '#c084fc', background: 'rgba(168,85,247,0.15)', padding: '1px 6px', borderRadius: 8, fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                    <span className="shimmer-bg-dark" style={{ width: 4, height: 4, borderRadius: '50%' }}></span>
+                    جاري التحديث... ⚡
+                  </span>
+                )}
+              </div>
               <span style={{ fontSize: '0.8rem', color: 'white', fontWeight: 900, display: 'flex', alignItems: 'center', gap: 2 }}>
                 حي الملقا، الرياض <ChevronLeft size={12} color="#c084fc" />
               </span>
